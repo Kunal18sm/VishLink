@@ -1,0 +1,919 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import { OAuth2Client } from 'google-auth-library';
+import { User } from './models/user.js';
+import { WebSample } from './models/WebSample.js';
+import { PurchasedWeb } from './models/purchasedWeb.js';
+import { Chat } from './models/chat.js';
+import { generateReply } from './utils/geminiBot.js';
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+const JWT_SECRET = process.env.JWT_SECRET || 'vishlink_jwt_secret_key_2026';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+
+// Primary Cloudinary Setup
+cloudinary.config({
+  cloud_name: process.env.CLOUD_NAME || 'drzq6kjgp',
+  api_key: process.env.CLOUD_API_KEY || '984621416722855',
+  api_secret: process.env.CLOUD_API_SECRET || 'Wu_h-_KRjRBasTVfjD_CYh2J0ec',
+});
+
+// Memory Storage for Multer uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
+app.use(cors());
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+
+// 1. Primary MongoDB Connection (Temporary & Main Data)
+const mongoUrl = process.env.MongoDB_URL || 'mongodb://localhost:27017/vishlink';
+
+mongoose
+  .connect(mongoUrl)
+  .then(() => {
+    console.log('Primary MongoDB connected successfully.');
+  })
+  .catch((err) => {
+    console.error('Primary MongoDB connection error:', err.message);
+  });
+
+// 2. Permanent MongoDB Connection (For Permanent Links)
+const permanentDbUrl = process.env.PERMANENT_MONGODB_URL || mongoUrl;
+const permanentConn = mongoose.createConnection(permanentDbUrl);
+
+permanentConn.on('connected', () => {
+  console.log('Permanent MongoDB Database connected successfully.');
+});
+
+permanentConn.on('error', (err) => {
+  console.error('Permanent MongoDB connection error:', err.message);
+});
+
+// Permanent PurchasedWeb Model bound to Permanent Database Connection
+const PermanentPurchasedWeb = permanentConn.model(
+  'purchasedWeb',
+  PurchasedWeb.schema,
+  'purchasedWeb'
+);
+
+// Auth Middleware Helpers
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ success: false, message: 'Access token required' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ success: false, message: 'Invalid or expired token' });
+    req.user = user;
+    next();
+  });
+};
+
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  if (token) {
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (!err) req.user = user;
+      next();
+    });
+  } else {
+    next();
+  }
+};
+
+// Admin Only Middleware
+const adminOnly = async (req, res, next) => {
+  if (!req.user) return res.status(401).json({ success: false, message: 'Admin authentication required.' });
+  try {
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(403).json({ success: false, message: 'User not found.' });
+    
+    // Check admin email or role
+    const adminEmails = ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'];
+    const isAdminUser = user.role === 'admin' || user.isAdmin === true || adminEmails.includes(user.email.toLowerCase());
+    
+    if (!isAdminUser) {
+      return res.status(403).json({ success: false, message: 'Access denied. Admin privileges required.' });
+    }
+    
+    req.adminUser = user;
+    next();
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ---------------- AUTH ROUTES ---------------- //
+
+// Register
+app.post('/api/auth/register', async (req, res) => {
+  try {
+    const { email, username, password } = req.body;
+    if (!email || !username || !password) {
+      return res.status(400).json({ success: false, message: 'Please provide email, username and password.' });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase() });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'User with this email already exists.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const adminEmails = ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'];
+    const role = adminEmails.includes(email.toLowerCase()) ? 'admin' : 'user';
+
+    const newUser = new User({
+      email: email.toLowerCase(),
+      username,
+      passwordHash,
+      role,
+      isAdmin: role === 'admin',
+    });
+    await newUser.save();
+
+    const token = jwt.sign({ id: newUser._id, email: newUser.email, username: newUser.username, role: newUser.role }, JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    res.json({
+      success: true,
+      message: 'Account created successfully!',
+      token,
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        username: newUser.username,
+        avatarUrl: newUser.avatarUrl,
+        role: newUser.role,
+        isAdmin: newUser.isAdmin,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Login (Email or Username)
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, username, emailOrUsername, password } = req.body;
+    const loginInput = String(emailOrUsername || email || username || '').trim();
+
+    if (!loginInput || !password) {
+      return res.status(400).json({ success: false, message: 'Email/Username and password are required.' });
+    }
+
+    const user = await User.findOne({
+      $or: [
+        { email: loginInput.toLowerCase() },
+        { username: { $regex: `^${loginInput.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}$`, $options: 'i' } },
+      ],
+    });
+
+    if (!user || !user.passwordHash) {
+      return res.status(400).json({ success: false, message: 'Invalid credentials.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({ success: false, message: 'Invalid credentials.' });
+    }
+
+    const adminEmails = ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'];
+    if (adminEmails.includes(user.email.toLowerCase()) && user.role !== 'admin') {
+      user.role = 'admin';
+      user.isAdmin = true;
+      await user.save();
+    }
+
+    const token = jwt.sign({ id: user._id, email: user.email, username: user.username, role: user.role }, JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    res.json({
+      success: true,
+      message: 'Logged in successfully!',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        isAdmin: user.isAdmin || user.role === 'admin',
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Google Sign In
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential, googleUser } = req.body;
+    let email = '';
+    let username = '';
+    let googleId = '';
+    let avatarUrl = '';
+
+    if (credential) {
+      if (googleClient && GOOGLE_CLIENT_ID) {
+        try {
+          const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: GOOGLE_CLIENT_ID,
+          });
+          const payload = ticket.getPayload();
+          email = payload?.email || '';
+          username = payload?.name || payload?.email?.split('@')[0] || 'User';
+          googleId = payload?.sub || '';
+          avatarUrl = payload?.picture || '';
+        } catch (verifyErr) {
+          console.warn('googleClient verifyIdToken fallback:', verifyErr.message);
+        }
+      }
+
+      if (!email && typeof credential === 'string' && credential.includes('.')) {
+        try {
+          const base64Url = credential.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            Buffer.from(base64, 'base64')
+              .toString()
+              .split('')
+              .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const payload = JSON.parse(jsonPayload);
+          email = payload?.email || '';
+          username = payload?.name || payload?.email?.split('@')[0] || 'Google User';
+          googleId = payload?.sub || '';
+          avatarUrl = payload?.picture || '';
+        } catch (e) {
+          console.error('Credential decode error:', e);
+        }
+      }
+    } else if (googleUser) {
+      email = googleUser.email;
+      username = googleUser.name || googleUser.username || email.split('@')[0];
+      googleId = googleUser.id || googleUser.sub || 'google_' + Date.now();
+      avatarUrl = googleUser.picture || googleUser.avatarUrl || '';
+    } else {
+      return res.status(400).json({ success: false, message: 'Invalid Google authentication payload.' });
+    }
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Google account email not found.' });
+    }
+
+    const adminEmails = ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'];
+    const isAdmin = adminEmails.includes(email.toLowerCase());
+
+    let user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+      user = new User({
+        email: email.toLowerCase(),
+        username,
+        googleId,
+        avatarUrl,
+        role: isAdmin ? 'admin' : 'user',
+        isAdmin,
+      });
+      await user.save();
+    } else {
+      if (avatarUrl && !user.avatarUrl) user.avatarUrl = avatarUrl;
+      if (googleId && !user.googleId) user.googleId = googleId;
+      if (isAdmin && user.role !== 'admin') {
+        user.role = 'admin';
+        user.isAdmin = true;
+      }
+      await user.save();
+    }
+
+    const token = jwt.sign({ id: user._id, email: user.email, username: user.username, role: user.role }, JWT_SECRET, {
+      expiresIn: '7d',
+    });
+
+    res.json({
+      success: true,
+      message: 'Google Login successful!',
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        avatarUrl: user.avatarUrl,
+        role: user.role,
+        isAdmin: user.isAdmin || user.role === 'admin',
+      },
+    });
+  } catch (err) {
+    console.error('Google Sign In error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Current User Details
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-passwordHash');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const adminEmails = ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'];
+    const isAdmin = user.role === 'admin' || user.isAdmin === true || adminEmails.includes(user.email.toLowerCase());
+
+    res.json({
+      success: true,
+      user: {
+        ...user.toObject(),
+        role: isAdmin ? 'admin' : 'user',
+        isAdmin,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ---------------- TEMPLATES ROUTES ---------------- //
+
+app.get('/api/templates', async (req, res) => {
+  try {
+    const templates = await WebSample.find({ isLive: true }).sort({ priority: -1, _id: -1 }).lean();
+    const sanitizedTemplates = templates.map((t) => {
+      let webUrl = t.webUrl || '';
+      if (!webUrl || webUrl.includes('localhost') || webUrl.includes('127.0.0.1')) {
+        webUrl = 'https://all-sub-websites.onrender.com/wish';
+      }
+      return { ...t, webUrl };
+    });
+    res.json({ success: true, templates: sanitizedTemplates });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/templates/:id', async (req, res) => {
+  try {
+    const template = await WebSample.findById(req.params.id).lean();
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+    let webUrl = template.webUrl || '';
+    if (!webUrl || webUrl.includes('localhost') || webUrl.includes('127.0.0.1')) {
+      webUrl = 'https://all-sub-websites.onrender.com/wish';
+    }
+    res.json({ success: true, template: { ...template, webUrl } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ---------------- ORDERS & PURCHASE ROUTES ---------------- //
+
+// Submit Purchase Order
+app.post(
+  '/api/orders',
+  optionalAuth,
+  upload.fields([
+    { name: 'images', maxCount: 5 },
+    { name: 'paymentProof', maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const {
+        templateId,
+        webName,
+        senderName,
+        receiverName,
+        specialMessage,
+        musicTrack,
+        themeColor,
+        isTemporary,
+        totalPrice,
+      } = req.body;
+
+      if (!senderName || !senderName.trim()) {
+        return res.status(400).json({ success: false, message: 'Your name (Sender) is required.' });
+      }
+
+      if (!receiverName || !receiverName.trim()) {
+        return res.status(400).json({ success: false, message: "Recipient's name is required." });
+      }
+
+      if (!specialMessage || !specialMessage.trim()) {
+        return res.status(400).json({ success: false, message: 'Wish message is required.' });
+      }
+
+      // Find template in primary database
+      let selectedWeb = null;
+      if (templateId && mongoose.Types.ObjectId.isValid(templateId)) {
+        selectedWeb = await WebSample.findById(templateId).lean();
+      }
+
+      const requiredPhotos = selectedWeb ? selectedWeb.imageNeeded : 5;
+      const isTemp = isTemporary !== 'false';
+
+      // Check photo validation
+      const uploadedFilesCount = req.files?.images ? req.files.images.length : 0;
+      if (requiredPhotos > 0 && uploadedFilesCount < requiredPhotos) {
+        return res.status(400).json({
+          success: false,
+          message: `This template requires exactly ${requiredPhotos} photo(s).`,
+        });
+      }
+
+      // Check User
+      let authorUser = null;
+      if (req.user) {
+        authorUser = await User.findById(req.user.id);
+      }
+
+      // Upload Images to Cloudinary
+      const uploadedImageObjs = [];
+      if (req.files && req.files.images) {
+        for (const file of req.files.images) {
+          const b64 = Buffer.from(file.buffer).toString('base64');
+          const dataURI = `data:${file.mimetype};base64,${b64}`;
+          const cloudRes = await cloudinary.uploader.upload(dataURI, {
+            folder: 'vishlink_wishes',
+          });
+          uploadedImageObjs.push({
+            url: cloudRes.secure_url,
+            filename: cloudRes.public_id,
+          });
+        }
+      }
+
+      // Upload Payment Proof if present
+      let paymentProofObj = null;
+      if (req.files && req.files.paymentProof && req.files.paymentProof[0]) {
+        const file = req.files.paymentProof[0];
+        const b64 = Buffer.from(file.buffer).toString('base64');
+        const dataURI = `data:${file.mimetype};base64,${b64}`;
+        const cloudRes = await cloudinary.uploader.upload(dataURI, {
+          folder: 'vishlink_payments',
+        });
+        paymentProofObj = {
+          url: cloudRes.secure_url,
+          filename: cloudRes.public_id,
+        };
+      }
+
+      // Link Generation matching reference project (Sanitize any localhost values in MongoDB):
+      const purchaseId = `VL-${Math.floor(100000 + Math.random() * 900000)}`;
+      
+      const rawTemplateUrl = selectedWeb ? selectedWeb.webUrl : '';
+      let baseWebUrl = 'https://all-sub-websites.onrender.com/wish';
+
+      if (rawTemplateUrl && typeof rawTemplateUrl === 'string') {
+        const trimmed = rawTemplateUrl.trim().replace(/\/+$/, '');
+        if (trimmed && !trimmed.includes('localhost') && !trimmed.includes('127.0.0.1')) {
+          baseWebUrl = trimmed;
+        }
+      }
+
+      let generatedWishingUrl = '';
+      if (isTemp) {
+        generatedWishingUrl = `${baseWebUrl}/${purchaseId}`;
+      } else {
+        generatedWishingUrl = `${baseWebUrl}/tulipParisBMW/${purchaseId}`;
+      }
+
+      const costAmount = Number(totalPrice) || (isTemp ? (selectedWeb?.priceForTemporary || 199) : (selectedWeb?.priceForPermanent || 399));
+
+      const orderDataPayload = {
+        purchaseId,
+        webUrl: generatedWishingUrl,
+        webName: webName || selectedWeb?.webName || 'Wish Surprise Website',
+        sender: senderName.trim(),
+        receiver: receiverName.trim(),
+        price: costAmount,
+        purchaseMode: 'upi',
+        paidCredits: 0,
+        images: uploadedImageObjs,
+        paymentProofUrl: paymentProofObj,
+        specialMsg: [specialMessage.trim()],
+        musicTrack: musicTrack || 'Happy Birthday Remix',
+        themeColor: themeColor || 'Rose Pink',
+        author: authorUser ? authorUser._id : null,
+        isTemporary: isTemp,
+        isLive: true,
+        expiresAt: isTemp ? new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) : null,
+      };
+
+      // SAVE IN PERMANENT DATABASE IF NOT TEMPORARY (MATCHING REFERENCE PROJECT!)
+      let newOrder;
+      if (isTemp) {
+        newOrder = new PurchasedWeb(orderDataPayload);
+        await newOrder.save();
+      } else {
+        newOrder = new PermanentPurchasedWeb(orderDataPayload);
+        await newOrder.save();
+      }
+
+      res.json({
+        success: true,
+        message: 'Wish Link created successfully!',
+        order: {
+          id: newOrder.purchaseId,
+          wishingSlug: purchaseId,
+          wishingUrl: newOrder.webUrl,
+          templateName: newOrder.webName,
+          senderName: newOrder.sender,
+          receiverName: newOrder.receiver,
+          specialMessage: newOrder.specialMsg[0],
+          uploadedImages: newOrder.images.map((img) => img.url),
+          themeColor: newOrder.themeColor,
+          musicTrack: newOrder.musicTrack,
+          totalPrice: newOrder.price,
+          purchaseDate: new Date(newOrder.date).toLocaleDateString(),
+          status: 'Active & Ready',
+        },
+      });
+    } catch (err) {
+      console.error('Order creation error:', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+);
+
+// My Orders List
+app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
+  try {
+    const tempOrders = await PurchasedWeb.find({ author: req.user.id }).sort({ date: -1 }).lean();
+    const permOrders = await PermanentPurchasedWeb.find({ author: req.user.id }).sort({ date: -1 }).lean();
+
+    const combined = [...tempOrders, ...permOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const formattedOrders = combined.map((o) => ({
+      id: o.purchaseId,
+      wishingSlug: o.purchaseId,
+      wishingUrl: o.webUrl,
+      senderName: o.sender,
+      receiverName: o.receiver,
+      specialMessage: o.specialMsg ? o.specialMsg[0] : '',
+      uploadedImages: (o.images || []).map((img) => img.url),
+      themeColor: o.themeColor,
+      totalPrice: o.price,
+      purchaseDate: new Date(o.date).toLocaleDateString(),
+      status: o.isLive ? 'Active & Ready' : 'Processing',
+      musicTrack: o.musicTrack,
+      isTemporary: o.isTemporary,
+    }));
+    res.json({ success: true, orders: formattedOrders });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Find Order by ID or Slug
+app.get('/api/orders/find', async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query) return res.status(400).json({ success: false, message: 'Please enter Order ID or Link Slug' });
+
+    let order = await PurchasedWeb.findOne({
+      $or: [{ purchaseId: String(query).trim() }, { webUrl: { $regex: String(query).trim(), $options: 'i' } }],
+    }).lean();
+
+    if (!order) {
+      order = await PermanentPurchasedWeb.findOne({
+        $or: [{ purchaseId: String(query).trim() }, { webUrl: { $regex: String(query).trim(), $options: 'i' } }],
+      }).lean();
+    }
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'No wish link or order found matching query.' });
+    }
+
+    res.json({
+      success: true,
+      order: {
+        id: order.purchaseId,
+        wishingSlug: order.purchaseId,
+        wishingUrl: order.webUrl,
+        senderName: order.sender,
+        receiverName: order.receiver,
+        specialMessage: order.specialMsg ? order.specialMsg[0] : '',
+        uploadedImages: (order.images || []).map((img) => img.url),
+        themeColor: order.themeColor,
+        totalPrice: order.price,
+        purchaseDate: new Date(order.date).toLocaleDateString(),
+        status: order.isLive ? 'Active & Ready' : 'Processing',
+        musicTrack: order.musicTrack,
+        isTemporary: order.isTemporary,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ---------------- ADMIN ONLY ENDPOINTS ---------------- //
+
+app.get('/api/admin/orders', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const tempOrders = await PurchasedWeb.find({}).sort({ date: -1 }).lean();
+    const permOrders = await PermanentPurchasedWeb.find({}).sort({ date: -1 }).lean();
+
+    const formattedTemp = tempOrders.map((o) => ({ ...o, dbType: 'Temporary (Primary)' }));
+    const formattedPerm = permOrders.map((o) => ({ ...o, dbType: 'Permanent DB' }));
+
+    const allOrders = [...formattedTemp, ...formattedPerm].sort(
+      (a, b) => new Date(b.date) - new Date(a.date)
+    );
+
+    const templatesCount = await WebSample.countDocuments({});
+    const usersCount = await User.countDocuments({});
+
+    res.json({
+      success: true,
+      stats: {
+        totalOrders: allOrders.length,
+        tempOrdersCount: tempOrders.length,
+        permOrdersCount: permOrders.length,
+        templatesCount,
+        usersCount,
+      },
+      orders: allOrders,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin Users List
+app.get('/api/admin/users', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const users = await User.find({}).select('-passwordHash').sort({ createdAt: -1 }).lean();
+
+    const formattedUsers = await Promise.all(
+      users.map(async (u) => {
+        const tempCount = await PurchasedWeb.countDocuments({ author: u._id });
+        const permCount = await PermanentPurchasedWeb.countDocuments({ author: u._id });
+        return {
+          ...u,
+          totalLinksCount: tempCount + permCount,
+        };
+      })
+    );
+
+    res.json({ success: true, users: formattedUsers });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin User Role Toggle
+app.post('/api/admin/users/:id/toggle-admin', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const targetUser = await User.findById(req.params.id);
+    if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+    targetUser.role = targetUser.role === 'admin' ? 'user' : 'admin';
+    targetUser.isAdmin = targetUser.role === 'admin';
+    await targetUser.save();
+
+    res.json({ success: true, message: `User role updated to ${targetUser.role}`, user: targetUser });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Delete User Account
+app.delete('/api/admin/users/:id', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'User account deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Create Template
+app.post('/api/admin/templates', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const { webName, webUrl, description, priceForTemporary, priceForPermanent, imageNeeded, priority, tags, imageUrl } = req.body;
+
+    if (!webName || !webUrl) {
+      return res.status(400).json({ success: false, message: 'Web Name and Web URL are required.' });
+    }
+
+    const newTemplate = new WebSample({
+      webName: webName.trim(),
+      webUrl: webUrl.trim(),
+      description: description ? description.trim() : 'Interactive wishing template',
+      priceForTemporary: typeof priceForTemporary === 'number' ? priceForTemporary : Number(priceForTemporary) || 0,
+      priceForPermanent: typeof priceForPermanent === 'number' ? priceForPermanent : Number(priceForPermanent) || 399,
+      imageNeeded: typeof imageNeeded === 'number' ? imageNeeded : 5,
+      priority: Number(priority) || 10,
+      tags: Array.isArray(tags) ? tags : ['birthday', 'all'],
+      imageUrl: { url: imageUrl || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800' },
+      isLive: true,
+    });
+
+    await newTemplate.save();
+    res.json({ success: true, message: 'New template added successfully!', template: newTemplate });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Helper to find template by ObjectId or String ID
+const findTemplateSafely = async (id) => {
+  if (mongoose.Types.ObjectId.isValid(id)) {
+    const found = await WebSample.findById(id);
+    if (found) return found;
+  }
+  return await WebSample.findOne({ webName: new RegExp(id, 'i') });
+};
+
+// Edit Template (PUT)
+app.put('/api/admin/templates/:id', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const { webName, webUrl, description, priceForTemporary, priceForPermanent, imageNeeded, priority, tags, imageUrl } = req.body;
+
+    const template = await findTemplateSafely(req.params.id);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    if (webName) template.webName = webName.trim();
+    if (webUrl) template.webUrl = webUrl.trim();
+    if (description !== undefined) template.description = description.trim();
+    if (priceForTemporary !== undefined) template.priceForTemporary = Number(priceForTemporary);
+    if (priceForPermanent !== undefined) template.priceForPermanent = Number(priceForPermanent);
+    if (imageNeeded !== undefined) template.imageNeeded = Number(imageNeeded);
+    if (priority !== undefined) template.priority = Number(priority);
+    if (Array.isArray(tags)) template.tags = tags;
+    if (imageUrl) template.imageUrl = { url: imageUrl.trim() };
+
+    await template.save();
+    res.json({ success: true, message: 'Template updated successfully!', template });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Edit Template (POST fallback for legacy forms)
+app.post('/api/admin/templates/:id/edit', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const { webName, webUrl, description, priceForTemporary, priceForPermanent, imageNeeded, priority, tags, imageUrl } = req.body;
+
+    const template = await findTemplateSafely(req.params.id);
+    if (!template) return res.status(404).json({ success: false, message: 'Template not found' });
+
+    if (webName) template.webName = webName.trim();
+    if (webUrl) template.webUrl = webUrl.trim();
+    if (description !== undefined) template.description = description.trim();
+    if (priceForTemporary !== undefined) template.priceForTemporary = Number(priceForTemporary);
+    if (priceForPermanent !== undefined) template.priceForPermanent = Number(priceForPermanent);
+    if (imageNeeded !== undefined) template.imageNeeded = Number(imageNeeded);
+    if (priority !== undefined) template.priority = Number(priority);
+    if (Array.isArray(tags)) template.tags = tags;
+    if (imageUrl) template.imageUrl = { url: imageUrl.trim() };
+
+    await template.save();
+    res.json({ success: true, message: 'Template updated successfully!', template });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/admin/templates/:id', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    await WebSample.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Template deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/admin/orders/:id/approve', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    let order = await PurchasedWeb.findOne({ purchaseId: req.params.id });
+    if (order) {
+      order.isLive = !order.isLive;
+      await order.save();
+      return res.json({ success: true, message: `Order live status updated to ${order.isLive}` });
+    }
+
+    let permOrder = await PermanentPurchasedWeb.findOne({ purchaseId: req.params.id });
+    if (permOrder) {
+      permOrder.isLive = !permOrder.isLive;
+      await permOrder.save();
+      return res.json({ success: true, message: `Permanent order live status updated to ${permOrder.isLive}` });
+    }
+
+    res.status(404).json({ success: false, message: 'Order not found.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/admin/orders/:id', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    let tempRes = await PurchasedWeb.findOneAndDelete({ purchaseId: req.params.id });
+    if (!tempRes) {
+      await PermanentPurchasedWeb.findOneAndDelete({ purchaseId: req.params.id });
+    }
+    res.json({ success: true, message: 'Order deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ---------------- AI CHATBOT ROUTE ---------------- //
+
+app.post('/api/chat', optionalAuth, async (req, res) => {
+  try {
+    const { message, conversationHistory } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, message: 'Message cannot be empty.' });
+    }
+
+    const aiReply = await generateReply(message, conversationHistory || []);
+
+    if (req.user) {
+      let userChat = await Chat.findOne({ user: req.user.id });
+      if (!userChat) {
+        userChat = new Chat({ user: req.user.id, messages: [] });
+      }
+      userChat.messages.push({ senderRole: 'user', text: message });
+      userChat.messages.push({ senderRole: 'bot', text: aiReply });
+      userChat.lastMessage = aiReply;
+      userChat.lastMessageAt = new Date();
+      await userChat.save();
+    }
+
+    res.json({ success: true, reply: aiReply });
+  } catch (err) {
+    console.error('Chat error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ---------------- FEEDBACK & SUGGESTIONS ROUTE ---------------- //
+
+const feedbackSchema = new mongoose.Schema({
+  name: { type: String, default: 'Anonymous User' },
+  email: { type: String, default: '' },
+  rating: { type: Number, default: 5 },
+  suggestion: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+});
+const Feedback = mongoose.model('Feedback', feedbackSchema);
+
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { name, email, rating, suggestion } = req.body;
+    if (!suggestion || !suggestion.trim()) {
+      return res.status(400).json({ success: false, message: 'Suggestion is required.' });
+    }
+
+    const newFeedback = new Feedback({
+      name: name?.trim() || 'Anonymous User',
+      email: email?.trim() || '',
+      rating: Number(rating) || 5,
+      suggestion: suggestion.trim(),
+    });
+
+    await newFeedback.save();
+    res.json({ success: true, message: 'Thank you for your feedback!' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/admin/feedback', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const feedbacks = await Feedback.find().sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, feedbacks });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.delete('/api/admin/feedback/:id', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    await Feedback.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Feedback deleted successfully.' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`VishLink Backend server listening on http://localhost:${PORT}`);
+});

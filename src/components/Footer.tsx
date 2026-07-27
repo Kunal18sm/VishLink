@@ -29,7 +29,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToSection, onNavigateT
               </span>
             </button>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Personalized 3D Wishing Website Links for Birthdays, Love Stories & Celebrations.
+              Personalized Wishing Website Links for Birthdays, Love Stories & Celebrations.
             </p>
 
             {/* Social Icons */}
@@ -47,7 +47,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToSection, onNavigateT
           <div className="space-y-3">
             <h3 className="text-white font-bold text-xs uppercase tracking-wider">Wish Templates</h3>
             <ul className="space-y-2 text-[11px]">
-              <li><button onClick={() => { onNavigateToPage('home'); onNavigateToSection('templates'); }} className="hover:text-white transition-colors cursor-pointer">3D Birthday Cake Links</button></li>
+              <li><button onClick={() => { onNavigateToPage('home'); onNavigateToSection('templates'); }} className="hover:text-white transition-colors cursor-pointer">Birthday Cake Links</button></li>
               <li><button onClick={() => { onNavigateToPage('home'); onNavigateToSection('occasions'); }} className="hover:text-white transition-colors cursor-pointer">Couple Love Story Websites</button></li>
               <li><button onClick={() => { onNavigateToPage('home'); onNavigateToSection('templates'); }} className="hover:text-white transition-colors cursor-pointer">Runaway "No" Proposals</button></li>
               <li><button onClick={() => { onNavigateToPage('home'); onNavigateToSection('templates'); }} className="hover:text-white transition-colors cursor-pointer">BFF Meme & Roast Links</button></li>

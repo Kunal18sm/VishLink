@@ -10,7 +10,7 @@ export const WhyVishLink: React.FC = () => {
     },
     {
       icon: Music,
-      title: 'Music & 3D Cake',
+      title: 'Music & Cake FX',
       sub: 'Interactive FX'
     },
     {

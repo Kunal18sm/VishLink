@@ -1,48 +1,60 @@
 import { Occasion, TemplateItem, CategoryItem, Testimonial } from '../types';
+import birthdayImg from '../assets/images/birthday.png';
+import coupleImg from '../assets/images/couple.jpg';
+import valantinesImg from '../assets/images/valantines.png';
+import bestfriendImg from '../assets/images/bestfriend.jpg';
+import familyImg from '../assets/images/family.jpg';
+import festivalsImg from '../assets/images/festivals.jpg';
 
 export const OCCASIONS: Occasion[] = [
   {
     id: 'birthday',
-    name: 'Birthday Wish Websites',
+    name: 'Birthday',
     iconUrl: '🎉',
-    tagline: 'Interactive cake cutting, fireworks & memory gallery'
+    tagline: 'Interactive cake, fireworks & music',
+    image: birthdayImg,
   },
   {
-    id: 'anniversary',
-    name: 'Anniversary Love Links',
-    iconUrl: '💍',
-    tagline: 'Romantic timeline, love letters & couple playlist'
+    id: 'couple',
+    name: 'Couple',
+    iconUrl: '💑',
+    tagline: 'Relationship timeline & secret notes',
+    image: coupleImg,
   },
   {
     id: 'valentines',
-    name: "Valentine's Special",
+    name: "Valentine's",
     iconUrl: '❤️',
-    tagline: 'Heartbeat animations, secret love notes & roses'
+    tagline: 'Heartbeat animations & love notes',
+    image: valantinesImg,
   },
   {
-    id: 'friendship',
-    name: 'Best Friends Forever',
+    id: 'best friend',
+    name: 'Best Friend',
     iconUrl: '🤝',
-    tagline: 'Crazy memories slideshow & funny friendship quotes'
+    tagline: 'Memories slideshow & funny quotes',
+    image: bestfriendImg,
   },
   {
-    id: 'festive',
-    name: 'Festival Greetings',
+    id: 'family',
+    name: 'Family',
+    iconUrl: '👨‍👩‍👧‍👦',
+    tagline: 'Family bonding & memory gallery',
+    image: familyImg,
+  },
+  {
+    id: 'festival',
+    name: 'Festivals',
     iconUrl: '🪔',
-    tagline: 'Diwali, Eid, Christmas & New Year animated links'
+    tagline: 'Diwali, Eid, Christmas & New Year',
+    image: festivalsImg,
   },
-  {
-    id: 'sorry-love',
-    name: 'Sorry & Reconnect',
-    iconUrl: '💌',
-    tagline: 'Apology heart-touching messages & background music'
-  }
 ];
 
 export const POPULAR_CATEGORIES = [
   {
     id: 'bday-3d',
-    name: '3D Cake Websites',
+    name: 'Cake Websites',
     image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=300'
   },
   {
@@ -80,16 +92,16 @@ export const POPULAR_CATEGORIES = [
 export const TEMPLATES: TemplateItem[] = [
   {
     id: 'web-bday-royal',
-    title: '3D Royal Birthday Celebration Website',
+    title: 'Royal Birthday Celebration Website',
     occasions: ['birthday'],
     price: 199,
     originalPrice: 499,
     rating: 4.9,
     reviewsCount: 342,
     image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=800',
-    description: 'An interactive birthday wishing webpage featuring virtual 3D cake cutting with custom candles, confetti explosion, background song, and photo flipbook.',
+    description: 'An interactive birthday wishing webpage featuring virtual cake cutting with custom candles, confetti explosion, background song, and photo flipbook.',
     includes: [
-      'Interactive Virtual 3D Cake Cutting',
+      'Interactive Virtual Cake Cutting',
       'Confetti & Fireworks Particle FX',
       'Background MP3 Music Player',
       'Unlimited Memory Photo Gallery Carousel',
@@ -198,7 +210,7 @@ export const TEMPLATES: TemplateItem[] = [
 export const CATEGORIES: CategoryItem[] = [
   {
     id: 'bday',
-    name: '3D Birthday Websites',
+    name: 'Birthday Cake Websites',
     image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=500',
     itemCount: 24
   },
@@ -225,7 +237,7 @@ export const CATEGORIES: CategoryItem[] = [
 export const TESTIMONIALS: Testimonial[] = [
   {
     id: '1',
-    quote: "I created a 3D birthday cake wishing website for my sister. When she clicked the WhatsApp link and cut the cake virtually with fireworks and her favorite song, she literally cried with happiness! Best ₹199 ever spent.",
+    quote: "I created a birthday cake wishing website for my sister. When she clicked the WhatsApp link and cut the cake virtually with fireworks and her favorite song, she literally cried with happiness! Best ₹199 ever spent.",
     author: 'Neha Sharma',
     role: 'Verified Buyer',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150',

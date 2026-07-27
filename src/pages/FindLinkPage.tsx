@@ -44,7 +44,7 @@ export const FindLinkPage: React.FC<FindLinkPageProps> = ({
   };
 
   const handleWhatsAppShare = (order: PurchasedOrder) => {
-    const text = `🎉 Hey ${order.receiverName}! I created a special 3D wishing website just for you! 💖\n\nClick here to view your surprise: ${order.wishingUrl}`;
+    const text = `🎉 Hey ${order.receiverName}! I created a special wishing website just for you! 💖\n\nClick here to view your surprise: ${order.wishingUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
 

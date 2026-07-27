@@ -7,7 +7,7 @@ export const HowItWorks: React.FC = () => {
       number: 1,
       icon: Sparkles,
       title: 'Choose Wish Occasion',
-      description: 'Select Birthday 3D Cake, Anniversary Love Story, or Proposal.'
+      description: 'Select Birthday Cake, Anniversary Love Story, or Proposal.'
     },
     {
       number: 2,

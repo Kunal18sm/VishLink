@@ -3,6 +3,7 @@ export interface Occasion {
   name: string;
   iconUrl: string;
   tagline?: string;
+  image?: string;
 }
 
 export interface TemplateItem {
@@ -19,6 +20,7 @@ export interface TemplateItem {
   customizableFields: string[];
   badge?: string;
   previewUrl?: string;
+  imageNeeded?: number;
 }
 
 export interface CategoryItem {

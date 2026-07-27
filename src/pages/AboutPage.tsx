@@ -31,7 +31,7 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onBack, onExploreTemplates
               Reinventing How People Express Love & Birthday Wishes
             </h1>
             <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-              VishLink is India's leading platform for creating interactive, 3D animated wishing website links. Instead of sending plain WhatsApp text messages, surprise your loved ones with interactive 3D cake cutting, custom songs, photo galleries, and secret love notes on their very own custom webpage!
+              VishLink is India's leading platform for creating interactive wishing website links. Instead of sending plain WhatsApp text messages, surprise your loved ones with interactive cake cutting, custom songs, photo galleries, and secret love notes on their very own custom webpage!
             </p>
           </div>
         </div>

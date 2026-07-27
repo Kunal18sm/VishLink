@@ -30,7 +30,7 @@ export const ValidityPage: React.FC<ValidityPageProps> = ({ onBack, onExploreTem
             Your Wishing Links Stay Active Forever
           </h1>
           <p className="text-slate-300 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
-            Unlike temporary status stories or expiring links, every interactive 3D birthday cake and romantic wishing webpage created on VishLink is hosted permanently on cloud infrastructure.
+            Unlike temporary status stories or expiring links, every interactive birthday cake and romantic wishing webpage created on VishLink is hosted permanently on cloud infrastructure.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export const ValidityPage: React.FC<ValidityPageProps> = ({ onBack, onExploreTem
             </div>
             <h3 className="font-bold text-slate-900 text-base">High-Speed Global CDN</h3>
             <p className="text-slate-500 text-xs leading-relaxed">
-              Hosted on ultra-fast edge servers so your recipient experiences smooth 3D candle animations on any mobile device anywhere in the world.
+              Hosted on ultra-fast edge servers so your recipient experiences smooth candle animations on any mobile device anywhere in the world.
             </p>
           </div>
 
@@ -73,7 +73,7 @@ export const ValidityPage: React.FC<ValidityPageProps> = ({ onBack, onExploreTem
             Ready to create a memory that lasts forever?
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm max-w-md mx-auto">
-            Choose a 3D birthday cake or love story template and send an unforgettable surprise on WhatsApp in 30 seconds!
+            Choose a birthday cake or love story template and send an unforgettable surprise on WhatsApp in 30 seconds!
           </p>
           <button
             onClick={onExploreTemplates}

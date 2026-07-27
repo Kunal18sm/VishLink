@@ -11,8 +11,8 @@ export const FaqsPage: React.FC<FaqsPageProps> = ({ onBack, onExploreTemplates }
 
   const faqs = [
     {
-      q: "How does a VishLink 3D wishing website work?",
-      a: "When you select a template and enter recipient details (names, photos, song, love notes), VishLink generates a custom web link. When the receiver opens the link on WhatsApp or mobile browser, an interactive 3D birthday cake appears with interactive candle cutting, music playback, confetti pop, and photo memory gallery!"
+      q: "How does a VishLink wishing website work?",
+      a: "When you select a template and enter recipient details (names, photos, song, love notes), VishLink generates a custom web link. When the receiver opens the link on WhatsApp or mobile browser, an interactive birthday cake appears with interactive candle cutting, music playback, confetti pop, and photo memory gallery!"
     },
     {
       q: "How do I share the created link on WhatsApp?",
@@ -28,7 +28,7 @@ export const FaqsPage: React.FC<FaqsPageProps> = ({ onBack, onExploreTemplates }
     },
     {
       q: "Will the music play automatically when opened?",
-      a: "Yes! Most modern mobile browsers support audio playback on first user touch. When the recipient taps on the 3D candle or screen, the chosen song melody plays smoothly."
+      a: "Yes! Most modern mobile browsers support audio playback on first user touch. When the recipient taps on the candle or screen, the chosen song melody plays smoothly."
     },
     {
       q: "Can I create links for anniversaries, Valentine's, or friends?",
@@ -38,53 +38,48 @@ export const FaqsPage: React.FC<FaqsPageProps> = ({ onBack, onExploreTemplates }
 
   return (
     <div className="py-12 bg-slate-50 min-h-[85vh]">
-      <div className="max-w-4xl mx-auto px-4 space-y-8">
-        
-        {/* Back Button */}
-        <button
-          onClick={onBack}
-          className="inline-flex items-center gap-2 text-slate-600 hover:text-[#e15b70] text-xs font-bold transition-colors cursor-pointer bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-2xs"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
-        </button>
-
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <span className="text-[#e15b70] text-xs font-bold uppercase tracking-wider bg-rose-50 px-3.5 py-1 rounded-full border border-rose-100">
-            Frequently Asked Questions
-          </span>
-          <h1 className="font-serif text-3xl sm:text-4xl font-bold text-slate-900">
-            FAQs & WhatsApp Sharing Guide
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm max-w-lg mx-auto">
-            Everything you need to know about creating, customizing, and sharing 3D wishing links on WhatsApp.
-          </p>
+      <div className="max-w-4xl mx-auto px-4">
+        {/* Top Header */}
+        <div className="flex items-center gap-3 mb-8">
+          <button
+            onClick={onBack}
+            className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 transition border border-slate-200 cursor-pointer shadow-2xs"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <span className="inline-flex items-center gap-1.5 bg-rose-100 text-[#e15b70] text-xs font-bold px-3 py-1 rounded-full border border-rose-200 mb-1">
+              <HelpCircle className="w-3.5 h-3.5" /> Frequently Asked Questions
+            </span>
+            <h1 className="font-serif text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+              Got Questions? We Have Answers
+            </h1>
+          </div>
         </div>
 
-        {/* FAQ Accordions */}
-        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-4">
-          {faqs.map((faq, idx) => {
-            const isOpen = openFaqIndex === idx;
+        {/* FAQs Accordion */}
+        <div className="space-y-4 mb-12">
+          {faqs.map((faq, index) => {
+            const isOpen = openFaqIndex === index;
             return (
               <div
-                key={idx}
-                className="border border-slate-100 rounded-2xl overflow-hidden transition-all"
+                key={index}
+                className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden transition-all"
               >
                 <button
-                  onClick={() => setOpenFaqIndex(isOpen ? null : idx)}
-                  className="w-full flex items-center justify-between p-4 sm:p-5 text-left text-xs sm:text-sm font-bold text-slate-900 hover:bg-rose-50/50 transition-colors cursor-pointer"
+                  onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                  className="w-full flex items-center justify-between p-5 text-left font-bold text-slate-900 text-sm sm:text-base hover:text-[#e15b70] transition-colors cursor-pointer"
                 >
-                  <span className="flex items-center gap-2.5">
-                    <HelpCircle className="w-4 h-4 text-[#e15b70] shrink-0" />
-                    {faq.q}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                  <span>{faq.q}</span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${
+                      isOpen ? 'rotate-180 text-[#e15b70]' : ''
+                    }`}
+                  />
                 </button>
-
                 {isOpen && (
-                  <div className="px-5 pb-5 text-xs sm:text-sm text-slate-600 leading-relaxed border-t border-slate-100/80 bg-slate-50/50 p-4">
-                    {faq.a}
+                  <div className="px-5 pb-5 pt-0 text-slate-600 text-xs sm:text-sm leading-relaxed border-t border-slate-100 mt-1">
+                    <p>{faq.a}</p>
                   </div>
                 )}
               </div>
@@ -92,20 +87,29 @@ export const FaqsPage: React.FC<FaqsPageProps> = ({ onBack, onExploreTemplates }
           })}
         </div>
 
-        {/* WhatsApp Step Guide Banner */}
-        <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white p-6 sm:p-8 rounded-3xl shadow-md space-y-4">
-          <div className="flex items-center gap-2 text-emerald-300 font-bold text-xs uppercase tracking-wider">
-            <Share2 className="w-4 h-4" />
-            <span>How To Send On WhatsApp Guide</span>
+        {/* Bottom Banner */}
+        <div className="bg-gradient-to-r from-[#0d1222] to-[#1a233d] text-white p-8 rounded-3xl shadow-xl space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-white/10 pb-6">
+            <div>
+              <h3 className="font-serif text-xl sm:text-2xl font-bold">Ready to Create Your Wish Link?</h3>
+              <p className="text-slate-300 text-xs sm:text-sm mt-1">
+                Choose from our collection of interactive wishing templates.
+              </p>
+            </div>
+            <button
+              onClick={onExploreTemplates}
+              className="inline-flex items-center gap-2 bg-[#e15b70] hover:bg-[#c94358] text-white font-bold text-xs px-6 py-3 rounded-xl transition cursor-pointer shrink-0 shadow-md"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Explore All Templates</span>
+            </button>
           </div>
 
-          <h3 className="font-serif text-2xl font-bold">1-Click WhatsApp Delivery</h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             <div className="bg-white/10 p-4 rounded-2xl border border-white/10 space-y-1">
               <span className="text-emerald-400 font-bold block">Step 1</span>
-              <p className="font-semibold text-white">Generate Your Link</p>
-              <p className="text-slate-300 text-[11px]">Personalize names, songs, and photos.</p>
+              <p className="font-semibold text-white">Fill Form & Add Photos</p>
+              <p className="text-slate-300 text-[11px]">Enter names, message, song & images.</p>
             </div>
 
             <div className="bg-white/10 p-4 rounded-2xl border border-white/10 space-y-1">
@@ -117,7 +121,7 @@ export const FaqsPage: React.FC<FaqsPageProps> = ({ onBack, onExploreTemplates }
             <div className="bg-white/10 p-4 rounded-2xl border border-white/10 space-y-1">
               <span className="text-emerald-400 font-bold block">Step 3</span>
               <p className="font-semibold text-white">Surprise The Recipient</p>
-              <p className="text-slate-300 text-[11px]">They tap and enjoy the 3D candle & song!</p>
+              <p className="text-slate-300 text-[11px]">They tap and enjoy the candle & song!</p>
             </div>
           </div>
         </div>

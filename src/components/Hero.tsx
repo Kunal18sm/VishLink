@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Play, Sparkles, Link as LinkIcon, Share2, Music, Cake } from 'lucide-react';
+import { ArrowRight, Play, Sparkles, Link as LinkIcon, Share2, Music, Cake, Heart } from 'lucide-react';
 
 interface HeroProps {
   onExploreTemplates: () => void;
@@ -16,7 +16,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreTemplates, onHowItWorks }) 
         <div className="max-w-3xl mx-auto space-y-6 text-center">
           
           <div className="inline-flex items-center gap-2 bg-white text-[#e15b70] text-xs font-bold px-3.5 py-1.5 rounded-full shadow-2xs border border-rose-100">
-            <Sparkles className="w-3.5 h-3.5 fill-[#e15b70]/20" />
+            <Heart className="w-3.5 h-3.5 fill-[#e15b70]" />
             <span>Personalized Wishing Website Links</span>
           </div>
 
@@ -27,7 +27,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreTemplates, onHowItWorks }) 
           </h1>
 
           <p className="text-slate-600 text-base sm:text-lg max-w-xl mx-auto font-normal leading-relaxed">
-            Create interactive 3D cake cutting, song melodies, photo galleries, and secret love notes on a custom web link. Instant share on WhatsApp in seconds!
+            Create interactive cake cutting, song melodies, photo galleries, and secret love notes on a custom web link. Instant share on WhatsApp in seconds!
           </p>
 
           {/* CTA Buttons */}
@@ -58,7 +58,7 @@ export const Hero: React.FC<HeroProps> = ({ onExploreTemplates, onHowItWorks }) 
                 <Cake className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900 leading-tight">3D Cake & FX</p>
+                <p className="text-xs font-bold text-slate-900 leading-tight">Interactive Cake & FX</p>
                 <p className="text-[11px] text-slate-500">Virtual Candle Pop</p>
               </div>
             </div>
