@@ -98,7 +98,7 @@ export const TEMPLATES: TemplateItem[] = [
     originalPrice: 499,
     rating: 4.9,
     reviewsCount: 342,
-    image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=80&w=800',
+    image: 'https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&q=90&w=1200',
     description: 'An interactive birthday wishing webpage featuring virtual cake cutting with custom candles, confetti explosion, background song, and photo flipbook.',
     includes: [
       'Interactive Virtual Cake Cutting',
@@ -118,7 +118,7 @@ export const TEMPLATES: TemplateItem[] = [
     originalPrice: 599,
     rating: 4.95,
     reviewsCount: 280,
-    image: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800',
+    image: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=90&w=1200',
     description: 'A deeply romantic interactive website that tells your beautiful love journey with a custom relationship counter clock, love letters, and romantic background melody.',
     includes: [
       'Days Together Live Relationship Counter',
@@ -138,7 +138,7 @@ export const TEMPLATES: TemplateItem[] = [
     originalPrice: 399,
     rating: 4.8,
     reviewsCount: 195,
-    image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=80&w=800',
+    image: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&q=90&w=1200',
     description: 'Ultra-modern dark theme birthday website with glowing neon animations, dynamic party countdown timer, balloon pop game, and customized greeting card.',
     includes: [
       'Interactive Balloon Pop Mini-Game',
@@ -158,7 +158,7 @@ export const TEMPLATES: TemplateItem[] = [
     originalPrice: 299,
     rating: 4.85,
     reviewsCount: 142,
-    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=80&w=800',
+    image: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&q=90&w=1200',
     description: 'A fun, quirky website made specifically for best friends with meme slideshows, secret nicknames, inside jokes, and high-energy music.',
     includes: [
       'Meme & Photo Carousel',
@@ -176,7 +176,7 @@ export const TEMPLATES: TemplateItem[] = [
     originalPrice: 499,
     rating: 5.0,
     reviewsCount: 410,
-    image: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&q=80&w=800',
+    image: 'https://images.unsplash.com/photo-1518895949257-7621c3c786d7?auto=format&fit=crop&q=90&w=1200',
     description: 'A cute proposal website with playful "Yes" and "No" buttons (where the "No" button runs away when hovered!), ending with romantic fireworks.',
     includes: [
       'Runaway "No" Button Interactive Game',
@@ -195,7 +195,7 @@ export const TEMPLATES: TemplateItem[] = [
     originalPrice: 249,
     rating: 4.75,
     reviewsCount: 88,
-    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=80&w=800',
+    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&q=90&w=1200',
     description: 'Send warm festival wishes with traditional music, glowing diyas/lights, customized family greetings, and blessing messages.',
     includes: [
       'Interactive Glowing Diya / Light Tapping',

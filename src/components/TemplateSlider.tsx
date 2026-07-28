@@ -62,7 +62,7 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
             Pick a Template, We'll Do the Rest
           </h2>
           <p className="text-slate-600 text-sm sm:text-base mt-3 max-w-xl mx-auto leading-relaxed">
-            Click on any template image to view its live website preview, or click Personalize to create your wish link.
+            Select any template to customize your wish link, add recipient names, photos, special message, and view your live website.
           </p>
 
           {selectedOccasion && (
@@ -113,42 +113,36 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
               return (
                 <div
                   key={template.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group"
+                  className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group cursor-pointer"
+                  onClick={() => onOpenCustomizeModal(template)}
                 >
-                  {/* Card Header & Thumbnail - Full width object-contain display */}
+                  {/* Card Header & Thumbnail - Full-bleed crisp HD cover image */}
                   <div
-                    onClick={() => handleOpenLivePreview(template)}
-                    className="relative aspect-[16/11] bg-slate-900/5 cursor-pointer flex items-center justify-center p-1.5 overflow-hidden"
-                    title="Click to view live template preview link"
+                    className="relative aspect-[16/10] bg-slate-100 overflow-hidden border-b border-slate-200/80"
+                    title="Click to personalize & create wishing webpage"
                   >
                     <img
                       src={template.image}
                       alt={template.title}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out rounded-xl"
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
                     />
 
                     {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent opacity-30 group-hover:opacity-50 transition-opacity rounded-2xl pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 via-transparent to-transparent opacity-20 group-hover:opacity-40 transition-opacity rounded-2xl pointer-events-none" />
 
-                    {/* Live Preview Button Hint on Image Hover */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/30 backdrop-blur-[2px]">
-                      <span className="inline-flex items-center gap-1.5 bg-white text-slate-900 text-xs font-bold px-3.5 py-1.5 rounded-full shadow-lg">
-                        <Eye className="w-3.5 h-3.5 text-[#e15b70]" />
-                        <span>Live Preview</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                    {/* Personalize Purchase Form Hint on Image Hover */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/30 backdrop-blur-[2px]">
+                      <span className="inline-flex items-center gap-1.5 bg-[#e15b70] text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg border border-white/20">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Customize & Order Form</span>
                       </span>
                     </div>
 
-                    {/* Badge */}
-                    {template.badge && (
-                      <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md text-[#e15b70] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-rose-100">
-                        {template.badge}
-                      </span>
-                    )}
-
                     {/* Rating Badge */}
-                    <div className="absolute bottom-3 right-3 bg-slate-950/70 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                    <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm border border-white/10">
                       <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                       <span>{template.rating || 4.9}</span>
                     </div>
@@ -159,8 +153,7 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
                     <div className="space-y-1.5">
                       {/* Title */}
                       <h3
-                        onClick={() => handleOpenLivePreview(template)}
-                        className="font-serif font-bold text-slate-900 text-lg sm:text-xl line-clamp-1 group-hover:text-[#e15b70] transition-colors cursor-pointer"
+                        className="font-sans font-bold text-slate-900 text-lg sm:text-xl line-clamp-1 group-hover:text-[#e15b70] transition-colors"
                       >
                         {template.title}
                       </h3>
@@ -190,7 +183,10 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
 
                       <div className="flex items-center gap-1.5">
                         <button
-                          onClick={() => handleOpenLivePreview(template)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenLivePreview(template);
+                          }}
                           className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[#e15b70] hover:bg-rose-50 transition"
                           title="Open Live Preview Link"
                         >
@@ -198,7 +194,10 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
                         </button>
 
                         <button
-                          onClick={() => onOpenCustomizeModal(template)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenCustomizeModal(template);
+                          }}
                           className="inline-flex items-center gap-1 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-rose-200 hover:shadow-lg transition-all cursor-pointer"
                         >
                           <Sparkles className="w-3 h-3" />

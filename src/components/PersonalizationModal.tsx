@@ -132,7 +132,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
               {/* Dynamic Overlay Ribbon & Text */}
               <div className="absolute bottom-2.5 left-2.5 right-2.5 p-2.5 rounded-xl backdrop-blur-md bg-white/95 shadow-md border border-rose-100 text-center transition-all">
                 <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Custom Web Page For</p>
-                <p className="font-serif text-sm sm:text-base font-bold truncate" style={{ color: themeColors.find(c => c.name === themeColor)?.color || '#e15b70' }}>
+                <p className="font-sans text-sm sm:text-base font-bold truncate" style={{ color: themeColors.find(c => c.name === themeColor)?.color || '#e15b70' }}>
                   {receiverName || 'Receiver Name'}
                 </p>
                 {senderName && (
@@ -173,7 +173,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
             <div className="flex items-start justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-[10px] font-bold text-[#e15b70] uppercase tracking-wider">Wishing Link Customization</span>
-                <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900">{template.title}</h2>
+                <h2 className="font-sans text-xl sm:text-2xl font-bold text-slate-900">{template.title}</h2>
               </div>
               <button
                 onClick={onClose}
@@ -310,7 +310,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
           <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
             <div>
               <span className="text-[10px] text-slate-400 block font-medium">Link Price</span>
-              <span className="font-serif text-2xl font-bold text-slate-900">₹{template.price}</span>
+              <span className="font-sans text-2xl font-bold text-slate-900">₹{template.price}</span>
             </div>
 
             <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -329,7 +329,7 @@ export const PersonalizationModal: React.FC<PersonalizationModalProps> = ({
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-[#0d1222] hover:bg-[#e15b70] text-white font-bold text-xs px-6 py-3 rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Buy & Generate Link</span>
+                <span>Click to Pay & Customize</span>
               </button>
             </div>
           </div>

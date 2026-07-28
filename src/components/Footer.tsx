@@ -4,10 +4,9 @@ import { Sparkles, Facebook, Instagram, ShieldCheck, Globe, Link as LinkIcon } f
 interface FooterProps {
   onNavigateToSection: (sectionId: string) => void;
   onNavigateToPage: (page: string) => void;
-  onOpenTrackOrder: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onNavigateToSection, onNavigateToPage, onOpenTrackOrder }) => {
+export const Footer: React.FC<FooterProps> = ({ onNavigateToSection, onNavigateToPage }) => {
   return (
     <footer className="bg-[#090d18] text-slate-400 text-xs pt-12 pb-6 border-t border-slate-800/80">
       <div className="max-w-7xl mx-auto px-4">
@@ -60,7 +59,7 @@ export const Footer: React.FC<FooterProps> = ({ onNavigateToSection, onNavigateT
             <h3 className="text-white font-bold text-xs uppercase tracking-wider">Quick Links</h3>
             <ul className="space-y-2 text-[11px]">
               <li><button onClick={() => { onNavigateToPage('home'); onNavigateToSection('how-it-works'); }} className="hover:text-white transition-colors cursor-pointer">How It Works</button></li>
-              <li><button onClick={onOpenTrackOrder} className="hover:text-white transition-colors cursor-pointer">Find My Wishing Link</button></li>
+              <li><button onClick={() => onNavigateToPage('profile')} className="hover:text-white transition-colors cursor-pointer">My Purchased Links</button></li>
               <li><button onClick={() => onNavigateToPage('faqs')} className="hover:text-white transition-colors cursor-pointer">WhatsApp Sharing Guide</button></li>
               <li><button onClick={() => onNavigateToPage('validity')} className="hover:text-white transition-colors cursor-pointer">Lifetime Link Validity</button></li>
             </ul>

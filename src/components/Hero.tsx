@@ -58,8 +58,8 @@ export const Hero: React.FC<HeroProps> = ({ onExploreTemplates, onHowItWorks }) 
                 <Cake className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900 leading-tight">Interactive Cake & FX</p>
-                <p className="text-[11px] text-slate-500">Virtual Candle Pop</p>
+                <p className="text-xs font-bold text-slate-900 leading-tight">3D Cake & Candle Blow</p>
+                <p className="text-[11px] text-slate-500">Interactive Cutting FX</p>
               </div>
             </div>
 
@@ -68,8 +68,8 @@ export const Hero: React.FC<HeroProps> = ({ onExploreTemplates, onHowItWorks }) 
                 <Music className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900 leading-tight">Custom Music</p>
-                <p className="text-[11px] text-slate-500">Favorite Song</p>
+                <p className="text-xs font-bold text-slate-900 leading-tight">Photos & Music Track</p>
+                <p className="text-[11px] text-slate-500">Custom Song & Memories</p>
               </div>
             </div>
 
@@ -78,8 +78,8 @@ export const Hero: React.FC<HeroProps> = ({ onExploreTemplates, onHowItWorks }) 
                 <Share2 className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900 leading-tight">Instant Link</p>
-                <p className="text-[11px] text-slate-500">1-Click WhatsApp</p>
+                <p className="text-xs font-bold text-slate-900 leading-tight">Instant Link Delivery</p>
+                <p className="text-[11px] text-slate-500">1-Click WhatsApp Share</p>
               </div>
             </div>
           </div>

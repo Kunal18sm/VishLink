@@ -21,6 +21,17 @@ import {
   Edit3,
   X,
   Check,
+  LayoutDashboard,
+  MessageSquare,
+  Crown,
+  Settings,
+  Clock,
+  ChevronRight,
+  ChevronDown,
+  DollarSign,
+  AlertCircle,
+  Star,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface AdminPageProps {
@@ -48,8 +59,17 @@ const CATEGORY_OPTIONS = [
 
 export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<
-    'orders-all' | 'orders-pending' | 'orders-permanent' | 'orders-live' | 'users' | 'templates' | 'feedback'
-  >('orders-all');
+    | 'dashboard'
+    | 'orders-all'
+    | 'orders-pending'
+    | 'orders-permanent'
+    | 'orders-live'
+    | 'users'
+    | 'templates'
+    | 'add-template'
+    | 'feedback'
+    | 'settings'
+  >('dashboard');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,10 +82,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   });
 
   const [orders, setOrders] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+
+  // Users State with 20-per-batch Pagination
+  const [users, setUsers] = useState<any[]>([]);
+  const [userPage, setUserPage] = useState(1);
+  const [hasMoreUsers, setHasMoreUsers] = useState(false);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [totalUsersCount, setTotalUsersCount] = useState(0);
+
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
 
   // New Template Form State
@@ -94,12 +121,103 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   const [templateSubmitLoading, setTemplateSubmitLoading] = useState(false);
   const [adminMsg, setAdminMsg] = useState('');
 
+  // Settings State
+  const [showCoinPrice, setShowCoinPrice] = useState(true);
+
   useEffect(() => {
     fetchAdminData();
     fetchTemplates();
-    fetchUsers();
+    fetchInitialUsers();
     fetchFeedbacks();
   }, []);
+
+  const fetchAdminData = async () => {
+    setLoading(true);
+    setError('');
+    const token = localStorage.getItem('vishlink_token');
+
+    try {
+      const res = await fetch('/api/admin/orders', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setStats(data.stats || {});
+        setOrders(data.orders || []);
+      } else {
+        setError(data.message || 'Failed to load admin stats');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Network error connecting to backend API');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchTemplates = async () => {
+    try {
+      const res = await fetch('/api/templates');
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTemplates(data.templates || []);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Fetch Users with 20 per batch Pagination
+  const fetchInitialUsers = async (searchQuery = '') => {
+    const token = localStorage.getItem('vishlink_token');
+    if (!token) return;
+
+    try {
+      setUserPage(1);
+      const url = `/api/admin/users?page=1&limit=20&search=${encodeURIComponent(searchQuery)}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers(data.users || []);
+        setHasMoreUsers(data.hasMore || false);
+        setTotalUsersCount(data.totalUsers || data.users.length);
+      }
+    } catch (err) {
+      console.error('Fetch users error:', err);
+    }
+  };
+
+  const handleLoadMoreUsers = async () => {
+    if (!hasMoreUsers || loadingMoreUsers) return;
+    const token = localStorage.getItem('vishlink_token');
+    if (!token) return;
+
+    setLoadingMoreUsers(true);
+    const nextPage = userPage + 1;
+
+    try {
+      const url = `/api/admin/users?page=${nextPage}&limit=20&search=${encodeURIComponent(userSearch)}`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setUsers((prev) => [...prev, ...(data.users || [])]);
+        setUserPage(nextPage);
+        setHasMoreUsers(data.hasMore || false);
+      }
+    } catch (err) {
+      console.error('Load more users error:', err);
+    } finally {
+      setLoadingMoreUsers(false);
+    }
+  };
+
+  const handleUserSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    fetchInitialUsers(userSearch);
+  };
 
   const fetchFeedbacks = async () => {
     const token = localStorage.getItem('vishlink_token');
@@ -111,130 +229,53 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setFeedbacks(data.feedbacks);
+        setFeedbacks(data.feedbacks || []);
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleDeleteFeedback = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this feedback submission?')) return;
+  const handleToggleLiveOrder = async (orderId: string) => {
     const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
-
     try {
-      const res = await fetch(`/api/admin/feedback/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        fetchFeedbacks();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchAdminData = async () => {
-    setLoading(true);
-    setError('');
-    const token = localStorage.getItem('vishlink_token');
-    if (!token) {
-      setError('Please log in with an Admin account.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await fetch('/api/admin/orders', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to load admin data');
-      }
-
-      setStats(data.stats);
-      setOrders(data.orders);
-    } catch (err: any) {
-      setError(err.message || 'Access denied or server error.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchUsers = async () => {
-    const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
-
-    try {
-      const res = await fetch('/api/admin/users', {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setUsers(data.users);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchTemplates = async () => {
-    try {
-      const res = await fetch('/api/templates');
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setTemplates(data.templates);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const handleToggleApprove = async (purchaseId: string) => {
-    const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
-
-    try {
-      const res = await fetch(`/api/admin/orders/${purchaseId}/approve`, {
+      const res = await fetch(`/api/admin/orders/${orderId}/approve`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        setAdminMsg(`Order status updated successfully!`);
         fetchAdminData();
+        setTimeout(() => setAdminMsg(''), 3000);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle order status');
     }
   };
 
-  const handleDeleteOrder = async (purchaseId: string) => {
-    if (!window.confirm('Are you sure you want to delete this order?')) return;
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!window.confirm(`Are you sure you want to delete order ID ${orderId}?`)) return;
     const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
 
     try {
-      const res = await fetch(`/api/admin/orders/${purchaseId}`, {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        setAdminMsg('Order deleted successfully');
         fetchAdminData();
+        setTimeout(() => setAdminMsg(''), 3000);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete order');
     }
   };
 
-  const handleToggleUserAdmin = async (userId: string) => {
+  const handleToggleUserRole = async (userId: string) => {
     const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
-
     try {
       const res = await fetch(`/api/admin/users/${userId}/toggle-admin`, {
         method: 'POST',
@@ -242,17 +283,18 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        fetchUsers();
+        setAdminMsg(`User role updated: ${data.user.role}`);
+        fetchInitialUsers(userSearch);
+        setTimeout(() => setAdminMsg(''), 3000);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Failed to toggle user role');
     }
   };
 
-  const handleDeleteUser = async (userId: string) => {
-    if (!window.confirm('Are you sure you want to delete this user account?')) return;
+  const handleDeleteUser = async (userId: string, username: string) => {
+    if (!window.confirm(`Are you sure you want to delete user ${username}?`)) return;
     const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
 
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
@@ -261,20 +303,21 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        fetchUsers();
+        setAdminMsg('User deleted successfully');
+        fetchInitialUsers(userSearch);
+        setTimeout(() => setAdminMsg(''), 3000);
       }
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete user');
     }
   };
 
-  // Create Template Handler
   const handleCreateTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newWebName.trim() || !newWebUrl.trim()) return;
+
     setTemplateSubmitLoading(true);
-    setAdminMsg('');
     const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
 
     try {
       const res = await fetch('/api/admin/templates', {
@@ -284,945 +327,859 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          webName: newWebName,
-          webUrl: newWebUrl,
-          description: newDesc,
-          priceForTemporary: Number(newTempPrice),
-          priceForPermanent: Number(newPermPrice),
-          imageNeeded: Number(newImageNeeded),
-          priority: Number(newPriority),
-          imageUrl: newImageUrl,
-          tags: selectedNewCategories.length > 0 ? selectedNewCategories : ['birthday', 'all'],
+          webName: newWebName.trim(),
+          webUrl: newWebUrl.trim(),
+          description: newDesc.trim(),
+          priceForTemporary: Number(newTempPrice) || 0,
+          priceForPermanent: Number(newPermPrice) || 399,
+          imageNeeded: Number(newImageNeeded) || 5,
+          priority: Number(newPriority) || 10,
+          tags: selectedNewCategories,
+          imageUrl: newImageUrl.trim(),
         }),
       });
 
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to create template');
+      if (res.ok && data.success) {
+        setAdminMsg('🎉 New Wish Template added successfully!');
+        setNewWebName('');
+        setNewWebUrl('');
+        setNewDesc('');
+        setNewImageUrl('');
+        fetchTemplates();
+        setActiveTab('templates');
+        setTimeout(() => setAdminMsg(''), 3000);
+      } else {
+        alert(data.message || 'Failed to add template');
       }
-
-      setAdminMsg('✓ New template added successfully to live catalog!');
-      setNewWebName('');
-      setNewWebUrl('');
-      setNewDesc('');
-      setNewImageUrl('');
-      fetchTemplates();
-      fetchAdminData();
     } catch (err: any) {
-      setAdminMsg(`Error: ${err.message}`);
+      alert(err.message || 'Failed to create template');
     } finally {
       setTemplateSubmitLoading(false);
     }
   };
 
-  // Open Edit Modal
-  const handleStartEditTemplate = (t: any) => {
+  const handleOpenEditModal = (t: any) => {
     setEditingTemplate(t);
-    setEditWebName(t.title || t.webName || '');
-    setEditWebUrl(t.previewUrl || t.webUrl || '');
+    setEditWebName(t.webName || t.title || '');
+    setEditWebUrl(t.webUrl || t.previewUrl || '');
     setEditDesc(t.description || '');
-    setEditTempPrice(String(t.price !== undefined ? t.price : t.priceForTemporary || 0));
-    setEditPermPrice(String(t.originalPrice || t.priceForPermanent || 399));
-    setEditImageNeeded(String(t.imageNeeded !== undefined ? t.imageNeeded : 5));
-    setEditPriority(String(t.priority || 10));
-    setEditImageUrl(t.image || t.imageUrl?.url || '');
-    setSelectedEditCategories(t.occasions || t.tags || ['birthday', 'all']);
+    setEditTempPrice(String(t.priceForTemporary ?? t.price ?? 0));
+    setEditPermPrice(String(t.priceForPermanent ?? t.originalPrice ?? 399));
+    setEditImageNeeded(String(t.imageNeeded ?? 5));
+    setEditPriority(String(t.priority ?? 10));
+    setEditImageUrl(t.imageUrl?.url || t.image || '');
+    setSelectedEditCategories(t.tags || t.occasions || ['birthday', 'all']);
   };
 
-  // Save Edit Template Handler
   const handleSaveEditTemplate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingTemplate) return;
 
     setTemplateSubmitLoading(true);
     const token = localStorage.getItem('vishlink_token');
-    const targetId = editingTemplate.id || editingTemplate._id;
 
     try {
-      let res = await fetch(`/api/admin/templates/${targetId}`, {
+      const res = await fetch(`/api/admin/templates/${editingTemplate._id || editingTemplate.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          webName: editWebName,
-          webUrl: editWebUrl,
-          description: editDesc,
-          priceForTemporary: Number(editTempPrice),
-          priceForPermanent: Number(editPermPrice),
-          imageNeeded: Number(editImageNeeded),
-          priority: Number(editPriority),
-          imageUrl: editImageUrl,
+          webName: editWebName.trim(),
+          webUrl: editWebUrl.trim(),
+          description: editDesc.trim(),
+          priceForTemporary: Number(editTempPrice) || 0,
+          priceForPermanent: Number(editPermPrice) || 399,
+          imageNeeded: Number(editImageNeeded) || 5,
+          priority: Number(editPriority) || 10,
           tags: selectedEditCategories,
+          imageUrl: editImageUrl.trim(),
         }),
       });
 
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        res = await fetch(`/api/admin/templates/${targetId}/edit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            webName: editWebName,
-            webUrl: editWebUrl,
-            description: editDesc,
-            priceForTemporary: Number(editTempPrice),
-            priceForPermanent: Number(editPermPrice),
-            imageNeeded: Number(editImageNeeded),
-            priority: Number(editPriority),
-            imageUrl: editImageUrl,
-            tags: selectedEditCategories,
-          }),
-        });
-      }
-
       const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || 'Failed to update template');
+      if (res.ok && data.success) {
+        setAdminMsg('Template updated successfully!');
+        setEditingTemplate(null);
+        fetchTemplates();
+        setTimeout(() => setAdminMsg(''), 3000);
+      } else {
+        alert(data.message || 'Failed to update template');
       }
-
-      setEditingTemplate(null);
-      fetchTemplates();
-      fetchAdminData();
     } catch (err: any) {
-      alert(`Update Error: ${err.message}`);
+      alert(err.message || 'Error updating template');
     } finally {
       setTemplateSubmitLoading(false);
     }
   };
 
-  const handleDeleteTemplate = async (id: string) => {
-    if (!window.confirm('Delete this template?')) return;
+  const handleDeleteTemplate = async (templateId: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete template "${name}"?`)) return;
     const token = localStorage.getItem('vishlink_token');
-    if (!token) return;
 
     try {
-      const res = await fetch(`/api/admin/templates/${id}`, {
+      const res = await fetch(`/api/admin/templates/${templateId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        setAdminMsg('Template deleted successfully');
         fetchTemplates();
-        fetchAdminData();
+        setTimeout(() => setAdminMsg(''), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete template');
+    }
+  };
+
+  const handleDeleteFeedback = async (id: string) => {
+    const token = localStorage.getItem('vishlink_token');
+    try {
+      const res = await fetch(`/api/admin/feedback/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFeedbacks((prev) => prev.filter((f) => f._id !== id));
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const toggleCategorySelection = (cat: string, isEdit: boolean) => {
-    if (isEdit) {
-      setSelectedEditCategories((prev) =>
-        prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-      );
-    } else {
-      setSelectedNewCategories((prev) =>
-        prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]
-      );
-    }
-  };
-
-  // Filter Orders depending on active tab
-  const getFilteredOrders = () => {
-    let list = orders;
+  // Filtered Orders logic
+  const filteredOrders = orders.filter((o) => {
     if (activeTab === 'orders-pending') {
-      list = list.filter((o) => !o.isLive);
-    } else if (activeTab === 'orders-permanent') {
-      list = list.filter((o) => !o.isTemporary || o.dbType?.includes('Permanent'));
-    } else if (activeTab === 'orders-live') {
-      list = list.filter((o) => o.isLive);
+      return o.paymentProofUrl && !o.isLive;
     }
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (o) =>
-          o.purchaseId?.toLowerCase().includes(q) ||
-          o.sender?.toLowerCase().includes(q) ||
-          o.receiver?.toLowerCase().includes(q) ||
-          o.webName?.toLowerCase().includes(q) ||
-          o.webUrl?.toLowerCase().includes(q)
-      );
+    if (activeTab === 'orders-permanent') {
+      return o.isTemporary === false || o.dbType === 'Permanent DB';
     }
-
-    return list;
-  };
-
-  const filteredOrdersList = getFilteredOrders();
-
-  const filteredUsersList = users.filter(
-    (u) =>
-      u.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    if (activeTab === 'orders-live') {
+      return o.isLive === true;
+    }
+    return true;
+  });
 
   return (
-    <div className="py-8 bg-slate-900 min-h-[90vh] text-slate-100 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        {/* Top Control Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 border-b border-slate-800 pb-6">
+    <div className="min-h-[90vh] bg-[#090d16] text-slate-100 font-sans py-6">
+      <div className="max-w-7xl mx-auto px-4 space-y-6">
+        
+        {/* Top Admin Control Header Bar */}
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
-              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+              className="p-2.5 rounded-2xl bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors cursor-pointer border border-slate-700"
+              title="Return to VishLink Home"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <ShieldCheck className="w-6 h-6 text-amber-400" />
-                <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                  VishLink Admin Suite
-                </h1>
+                <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">
+                  Admin Control Panel
+                </span>
+                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Full management dashboard for orders, templates, category tags & registered users.
-              </p>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-1 flex items-center gap-2">
+                VishLink Master Control
+              </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => {
                 fetchAdminData();
                 fetchTemplates();
-                fetchUsers();
+                fetchInitialUsers();
+                fetchFeedbacks();
               }}
-              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-700 transition cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Stats</span>
+              <span>Refresh Data</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('add-template')}
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#c94358] hover:opacity-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Template</span>
             </button>
           </div>
         </div>
 
-        {error ? (
-          <div className="rounded-3xl bg-red-900/30 border border-red-500/50 p-8 text-center max-w-lg mx-auto my-12">
-            <Lock className="w-12 h-12 text-red-400 mx-auto mb-3" />
-            <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
-            <p className="text-xs text-red-200 mb-6">{error}</p>
-            <button
-              onClick={onBack}
-              className="bg-red-600 hover:bg-red-500 text-white font-bold text-xs px-6 py-2.5 rounded-xl transition cursor-pointer"
-            >
-              Back to Safety
-            </button>
-          </div>
-        ) : (
-          <>
-            {/* Admin Stats Grid Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-8">
-              <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/70">
-                <span className="text-slate-400 text-xs font-medium block">Total Orders</span>
-                <span className="text-2xl font-black text-white">{stats.totalOrders}</span>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/70">
-                <span className="text-slate-400 text-xs font-medium block">Temporary Links</span>
-                <span className="text-2xl font-black text-indigo-400">{stats.tempOrdersCount}</span>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/70">
-                <span className="text-slate-400 text-xs font-medium block">Permanent Links</span>
-                <span className="text-2xl font-black text-amber-400">{stats.permOrdersCount}</span>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/70">
-                <span className="text-slate-400 text-xs font-medium block">Live Templates</span>
-                <span className="text-2xl font-black text-emerald-400">{stats.templatesCount}</span>
-              </div>
-              <div className="bg-slate-800/80 p-4 rounded-2xl border border-slate-700/70">
-                <span className="text-slate-400 text-xs font-medium block">Registered Users</span>
-                <span className="text-2xl font-black text-rose-400">{stats.usersCount || users.length}</span>
-              </div>
-            </div>
-
-            {/* Navigation Tabs Bar */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-4">
-              <div className="flex flex-wrap gap-2 text-xs font-bold overflow-x-auto pb-1">
-                <button
-                  onClick={() => setActiveTab('orders-all')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'orders-all'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  📥 All Orders ({orders.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('orders-pending')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'orders-pending'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  ⏳ Pending ({orders.filter((o) => !o.isLive).length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('orders-permanent')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'orders-permanent'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  💎 Permanent Queue ({orders.filter((o) => !o.isTemporary || o.dbType?.includes('Permanent')).length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('orders-live')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'orders-live'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  🟢 Active Live ({orders.filter((o) => o.isLive).length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('users')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'users'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  👥 Users Directory ({users.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('templates')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'templates'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  🎨 Templates Manager ({templates.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab('feedback')}
-                  className={`px-3.5 py-2 rounded-xl transition cursor-pointer shrink-0 ${
-                    activeTab === 'feedback'
-                      ? 'bg-amber-400 text-slate-950 shadow-md'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  💬 User Feedbacks ({feedbacks.length})
-                </button>
-              </div>
-
-              {/* Search Bar */}
-              <div className="relative w-full sm:w-64 shrink-0">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search orders or users..."
-                  className="w-full bg-slate-800 text-xs text-white placeholder-slate-400 rounded-xl pl-9 pr-4 py-2 border border-slate-700 focus:outline-hidden focus:border-amber-400"
-                />
-              </div>
-            </div>
-
-            {/* TAB CONTENT 1: ORDERS TABLES */}
-            {activeTab.startsWith('orders') && (
-              <div className="bg-slate-800/90 rounded-3xl border border-slate-700/80 overflow-hidden shadow-xl">
-                <div className="p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs font-bold text-slate-300">
-                  <span>Showing {filteredOrdersList.length} Order(s)</span>
-                  <span className="text-slate-400 text-[11px]">
-                    Temporary: Primary DB | Permanent: Sales DB
-                  </span>
-                </div>
-
-                {loading ? (
-                  <div className="p-12 text-center text-slate-400">Loading orders...</div>
-                ) : filteredOrdersList.length === 0 ? (
-                  <div className="p-12 text-center text-slate-400 text-sm">
-                    No orders found matching the filter query.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs text-slate-300 min-w-[700px]">
-                      <thead className="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700 uppercase tracking-wider text-[11px]">
-                        <tr>
-                          <th className="p-4">Order ID & Date</th>
-                          <th className="p-4">Template & Price</th>
-                          <th className="p-4">Sender ➔ Receiver</th>
-                          <th className="p-4">Database & Type</th>
-                          <th className="p-4">Status & Action</th>
-                          <th className="p-4">Payment Proof</th>
-                          <th className="p-4 text-right">Delete</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-700/50">
-                        {filteredOrdersList.map((order) => (
-                          <tr key={order._id || order.purchaseId} className="hover:bg-slate-700/30 transition">
-                            <td className="p-4 font-mono">
-                              <span className="font-bold text-amber-400 block">{order.purchaseId}</span>
-                              <span className="text-[11px] text-slate-400">
-                                {new Date(order.date).toLocaleDateString()}
-                              </span>
-                            </td>
-
-                            <td className="p-4">
-                              <p className="font-bold text-white">{order.webName}</p>
-                              <a
-                                href={order.webUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-[11px] text-indigo-300 hover:underline flex items-center gap-1 mt-0.5"
-                              >
-                                <span>{order.webUrl?.slice(0, 35)}...</span>
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
-                            </td>
-
-                            <td className="p-4">
-                              <p className="text-slate-200">
-                                <span className="font-semibold">{order.sender}</span> ➔{' '}
-                                <span className="font-semibold text-rose-300">{order.receiver}</span>
-                              </p>
-                              <p className="text-[11px] text-slate-400 line-clamp-1 max-w-xs">
-                                "{order.specialMsg?.[0]}"
-                              </p>
-                            </td>
-
-                            <td className="p-4">
-                              <span
-                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                                  order.isTemporary
-                                    ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                }`}
-                              >
-                                {order.isTemporary ? 'Temporary (Primary DB)' : 'Permanent (Sales DB)'}
-                              </span>
-                              <p className="text-[11px] font-extrabold text-white mt-1">₹{order.price}</p>
-                            </td>
-
-                            <td className="p-4">
-                              <button
-                                onClick={() => handleToggleApprove(order.purchaseId)}
-                                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-[11px] cursor-pointer transition ${
-                                  order.isLive
-                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30'
-                                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
-                                }`}
-                              >
-                                {order.isLive ? (
-                                  <>
-                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                    <span>Live (Click to Pause)</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <XCircle className="w-3.5 h-3.5 text-amber-400" />
-                                    <span>Pending (Click to Approve)</span>
-                                  </>
-                                )}
-                              </button>
-                            </td>
-
-                            <td className="p-4">
-                              {order.paymentProofUrl?.url ? (
-                                <button
-                                  onClick={() => setSelectedProofUrl(order.paymentProofUrl.url)}
-                                  className="inline-flex items-center gap-1.5 text-xs text-rose-300 hover:text-rose-200 underline cursor-pointer bg-rose-950/40 px-2.5 py-1 rounded-lg border border-rose-800/50"
-                                >
-                                  <Eye className="w-3.5 h-3.5" />
-                                  <span>View Proof</span>
-                                </button>
-                              ) : (
-                                <span className="text-[11px] text-slate-500">No proof attached</span>
-                              )}
-                            </td>
-
-                            <td className="p-4 text-right">
-                              <button
-                                onClick={() => handleDeleteOrder(order.purchaseId)}
-                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-xl transition cursor-pointer"
-                                title="Delete Order"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* TAB CONTENT 2: REGISTERED USERS DIRECTORY */}
-            {activeTab === 'users' && (
-              <div className="bg-slate-800/90 rounded-3xl border border-slate-700/80 overflow-hidden shadow-xl">
-                <div className="p-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between text-xs font-bold text-slate-300">
-                  <span>Registered Users ({filteredUsersList.length})</span>
-                  <span className="text-slate-400 text-[11px]">User role management & accounts</span>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-slate-300 min-w-[600px]">
-                    <thead className="bg-slate-900/60 text-slate-400 font-semibold border-b border-slate-700 uppercase tracking-wider text-[11px]">
-                      <tr>
-                        <th className="p-4">User</th>
-                        <th className="p-4">Email</th>
-                        <th className="p-4">Role & Status</th>
-                        <th className="p-4">Created Links</th>
-                        <th className="p-4">Admin Toggle</th>
-                        <th className="p-4 text-right">Delete Account</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-700/50">
-                      {filteredUsersList.map((u) => (
-                        <tr key={u._id} className="hover:bg-slate-700/30 transition">
-                          <td className="p-4 font-bold text-white flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-300 font-black">
-                              {u.username?.charAt(0).toUpperCase() || 'U'}
-                            </div>
-                            <span>{u.username}</span>
-                          </td>
-                          <td className="p-4 text-slate-300">{u.email}</td>
-                          <td className="p-4">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                                u.role === 'admin' || u.isAdmin
-                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                                  : 'bg-slate-700 text-slate-300'
-                              }`}
-                            >
-                              {u.role === 'admin' || u.isAdmin ? '👑 Admin Master' : 'Verified User'}
-                            </span>
-                          </td>
-                          <td className="p-4 font-bold text-emerald-400">{u.totalLinksCount || 0} Links</td>
-                          <td className="p-4">
-                            <button
-                              onClick={() => handleToggleUserAdmin(u._id)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold bg-slate-700 hover:bg-slate-600 text-white cursor-pointer transition"
-                            >
-                              {u.role === 'admin' ? (
-                                <>
-                                  <UserX className="w-3.5 h-3.5 text-amber-400" /> Revoke Admin
-                                </>
-                              ) : (
-                                <>
-                                  <UserCheck className="w-3.5 h-3.5 text-emerald-400" /> Make Admin
-                                </>
-                              )}
-                            </button>
-                          </td>
-                          <td className="p-4 text-right">
-                            <button
-                              onClick={() => handleDeleteUser(u._id)}
-                              className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-xl transition cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* TAB CONTENT 3: TEMPLATES MANAGER & CREATE/EDIT FORM */}
-            {activeTab === 'templates' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-                {/* Left Side: Add New Template Form */}
-                <div className="lg:col-span-5 bg-slate-800 p-6 rounded-3xl border border-slate-700/80 shadow-xl space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-700 pb-3">
-                    <Plus className="w-5 h-5 text-amber-400" />
-                    <h2 className="font-bold text-white text-base">Add New Sample Template</h2>
-                  </div>
-
-                  {adminMsg && (
-                    <div className="p-3 rounded-xl bg-slate-900 text-xs font-semibold text-amber-300 border border-slate-700">
-                      {adminMsg}
-                    </div>
-                  )}
-
-                  <form onSubmit={handleCreateTemplate} className="space-y-4 text-xs">
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Web Name (Title) *</label>
-                      <input
-                        type="text"
-                        required
-                        value={newWebName}
-                        onChange={(e) => setNewWebName(e.target.value)}
-                        placeholder="e.g. Elegant Romantic Birthday Web"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-400 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Live Web Target URL *</label>
-                      <input
-                        type="url"
-                        required
-                        value={newWebUrl}
-                        onChange={(e) => setNewWebUrl(e.target.value)}
-                        placeholder="https://all-sub-websites.onrender.com/fest/womensday"
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-400 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Cover Image Cloudinary URL</label>
-                      <input
-                        type="text"
-                        value={newImageUrl}
-                        onChange={(e) => setNewImageUrl(e.target.value)}
-                        placeholder="https://res.cloudinary.com/..."
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:border-amber-400 focus:outline-hidden"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-slate-300 font-semibold mb-1">Temp Price (₹)</label>
-                        <input
-                          type="number"
-                          value={newTempPrice}
-                          onChange={(e) => setNewTempPrice(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-300 font-semibold mb-1">Perm Price (₹)</label>
-                        <input
-                          type="number"
-                          value={newPermPrice}
-                          onChange={(e) => setNewPermPrice(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-slate-300 font-semibold mb-1">Photos Needed</label>
-                        <input
-                          type="number"
-                          value={newImageNeeded}
-                          onChange={(e) => setNewImageNeeded(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-slate-300 font-semibold mb-1">Priority Order</label>
-                        <input
-                          type="number"
-                          value={newPriority}
-                          onChange={(e) => setNewPriority(e.target.value)}
-                          className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Multi Category Checkboxes */}
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1.5">
-                        Category Tags (Reference Project Categories):
-                      </label>
-                      <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto p-2 bg-slate-900 rounded-xl border border-slate-700">
-                        {CATEGORY_OPTIONS.map((cat) => {
-                          const isSel = selectedNewCategories.includes(cat);
-                          return (
-                            <button
-                              key={cat}
-                              type="button"
-                              onClick={() => toggleCategorySelection(cat, false)}
-                              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-                                isSel
-                                  ? 'bg-amber-400 text-slate-950'
-                                  : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                              }`}
-                            >
-                              {cat}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-300 font-semibold mb-1">Description</label>
-                      <textarea
-                        rows={2}
-                        value={newDesc}
-                        onChange={(e) => setNewDesc(e.target.value)}
-                        placeholder="Template description..."
-                        className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2 text-white"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={templateSubmitLoading}
-                      className="w-full bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold py-3 rounded-xl transition cursor-pointer"
-                    >
-                      {templateSubmitLoading ? 'Saving Template...' : '+ Add Template to Live Catalog'}
-                    </button>
-                  </form>
-                </div>
-
-                {/* Right Side: Existing Templates List with Edit & Delete Controls */}
-                <div className="lg:col-span-7 bg-slate-800 p-6 rounded-3xl border border-slate-700/80 shadow-xl space-y-4">
-                  <h2 className="font-bold text-white text-base border-b border-slate-700 pb-3">
-                    Active Catalog Templates ({templates.length})
-                  </h2>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {templates.map((t) => (
-                      <div
-                        key={t.id || t._id}
-                        className="bg-slate-900 p-3.5 rounded-2xl border border-slate-700/80 flex flex-col justify-between"
-                      >
-                        <div className="flex gap-3">
-                          <img
-                            src={t.image || t.imageUrl?.url}
-                            alt=""
-                            className="w-16 h-16 object-contain rounded-xl bg-slate-800 p-1 shrink-0"
-                          />
-                          <div className="overflow-hidden">
-                            <p className="font-bold text-white text-xs truncate">{t.title || t.webName}</p>
-                            <p className="text-[11px] text-amber-400 font-bold mt-0.5">
-                              {t.price === 0 ? 'FREE (Temp)' : `₹${t.price} (Temp)`} • ₹{t.originalPrice || 399} (Perm)
-                            </p>
-                            <p className="text-[10px] text-slate-400 mt-1">
-                              Photos Needed: {t.imageNeeded || 5}
-                            </p>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {(t.occasions || t.tags || []).slice(0, 3).map((tag: string, idx: number) => (
-                                <span key={idx} className="bg-slate-800 text-slate-400 text-[9px] px-1.5 py-0.5 rounded">
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[11px]">
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={t.previewUrl || t.webUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-indigo-300 hover:underline flex items-center gap-1"
-                            >
-                              <span>Preview</span>
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
-                            <button
-                              onClick={() => handleStartEditTemplate(t)}
-                              className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold cursor-pointer"
-                            >
-                              <Edit3 className="w-3 h-3" />
-                              <span>Edit</span>
-                            </button>
-                          </div>
-
-                          <button
-                            onClick={() => handleDeleteTemplate(t.id || t._id)}
-                            className="text-red-400 hover:text-red-300 font-semibold cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* TAB CONTENT 4: USER FEEDBACKS & SUGGESTIONS */}
-            {activeTab === 'feedback' && (
-              <div className="bg-slate-800/90 rounded-3xl border border-slate-700/80 overflow-hidden shadow-xl p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700 pb-4">
-                  <div>
-                    <h2 className="font-bold text-white text-lg flex items-center gap-2">
-                      <span>💬 User Feedbacks & Suggestions</span>
-                      <span className="bg-rose-500/20 text-rose-300 text-xs px-2.5 py-0.5 rounded-full border border-rose-500/30">
-                        {feedbacks.length} Submissions
-                      </span>
-                    </h2>
-                    <p className="text-xs text-slate-400 mt-0.5">
-                      Review feature requests, ratings, and feedback submitted by users.
-                    </p>
-                  </div>
-                </div>
-
-                {feedbacks.length === 0 ? (
-                  <div className="p-12 text-center text-slate-400 text-sm bg-slate-900/50 rounded-2xl border border-slate-700/50">
-                    No feedback submissions received yet.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {feedbacks.map((item) => (
-                      <div
-                        key={item._id}
-                        className="bg-slate-900 p-5 rounded-2xl border border-slate-700/80 space-y-3 relative group hover:border-amber-400/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-2 border-b border-slate-800 pb-3">
-                          <div>
-                            <h4 className="font-bold text-white text-sm">
-                              {item.name || 'Anonymous User'}
-                            </h4>
-                            {item.email && (
-                              <p className="text-xs text-slate-400 mt-0.5">{item.email}</p>
-                            )}
-                          </div>
-
-                          <div className="text-right shrink-0">
-                            <div className="flex items-center gap-0.5 text-amber-400 text-xs">
-                              {Array.from({ length: item.rating || 5 }).map((_, i) => (
-                                <span key={i}>★</span>
-                              ))}
-                            </div>
-                            <span className="text-[10px] text-slate-500 block mt-0.5">
-                              {new Date(item.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </div>
-
-                        <p className="text-xs text-slate-200 leading-relaxed italic bg-slate-950/60 p-3 rounded-xl border border-slate-800">
-                          "{item.suggestion}"
-                        </p>
-
-                        <div className="flex justify-end pt-1">
-                          <button
-                            onClick={() => handleDeleteFeedback(item._id)}
-                            className="inline-flex items-center gap-1 text-[11px] text-red-400 hover:text-red-300 font-semibold cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Delete Feedback</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* EDIT TEMPLATE MODAL */}
-      {editingTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="relative max-w-xl w-full bg-slate-900 p-6 rounded-3xl border border-slate-700 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setEditingTemplate(null)}
-              className="absolute right-4 top-4 bg-slate-800 text-slate-300 hover:text-white p-2 rounded-full cursor-pointer"
-            >
+        {adminMsg && (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" /> {adminMsg}
+            </span>
+            <button onClick={() => setAdminMsg('')} className="text-slate-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
+          </div>
+        )}
 
-            <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
-              <Edit3 className="w-5 h-5 text-amber-400" />
-              <h3 className="text-base font-bold text-white">Edit Template: {editingTemplate.title || editingTemplate.webName}</h3>
+        {/* Primary Navigation Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-bold text-slate-400">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab === 'dashboard'
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <LayoutDashboard className="w-4 h-4" />
+            <span>Dashboard Overview</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab === 'users'
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>All Users ({stats.usersCount || users.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('templates')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab === 'templates'
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Wish Templates ({templates.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('orders-all')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab.startsWith('orders-')
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            <span>Purchased Orders ({orders.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('feedback')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab === 'feedback'
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span>Feedbacks ({feedbacks.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab === 'settings'
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>System Settings</span>
+          </button>
+        </div>
+
+        {/* ---------------- 1. DASHBOARD HOME OVERVIEW VIEW ---------------- */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8 animate-in fade-in">
+            {/* Quick Metrics Cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800 shadow-md">
+                <span className="text-slate-400 text-xs font-semibold block">Total Registered Users</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-white mt-1 block">
+                  {stats.usersCount || users.length}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-bold mt-1 inline-block">Active Creators</span>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800 shadow-md">
+                <span className="text-slate-400 text-xs font-semibold block">Total Purchased Orders</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-rose-400 mt-1 block">
+                  {orders.length}
+                </span>
+                <span className="text-[10px] text-rose-300 font-bold mt-1 inline-block">
+                  {stats.tempOrdersCount || 0} Temp | {stats.permOrdersCount || 0} Perm
+                </span>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800 shadow-md">
+                <span className="text-slate-400 text-xs font-semibold block">Live Wish Templates</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-amber-400 mt-1 block">
+                  {templates.length}
+                </span>
+                <span className="text-[10px] text-amber-300 font-bold mt-1 inline-block">Available in Store</span>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-900 to-slate-900/80 border border-slate-800 shadow-md">
+                <span className="text-slate-400 text-xs font-semibold block">User Feedbacks</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-sky-400 mt-1 block">
+                  {feedbacks.length}
+                </span>
+                <span className="text-[10px] text-sky-300 font-bold mt-1 inline-block">Suggestions & Ratings</span>
+              </div>
             </div>
 
-            <form onSubmit={handleSaveEditTemplate} className="space-y-4 text-xs">
+            {/* Dashboard Option Cards Grid (Matching Old WishLink Layout) */}
+            <div>
+              <div className="mb-4">
+                <h2 className="text-lg font-bold text-white">Admin Management Hub</h2>
+                <p className="text-xs text-slate-400">Click any feature option to manage in full dedicated page view.</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Card 1: Add Template */}
+                <button
+                  onClick={() => setActiveTab('add-template')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-rose-500/30 hover:border-rose-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    ✨
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-rose-400 transition-colors">
+                    Add Wish Template
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Upload & publish new interactive wishing templates to the store.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-rose-400">
+                    Open Action ➔
+                  </span>
+                </button>
+
+                {/* Card 2: All Users */}
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-indigo-500/30 hover:border-indigo-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    👥
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-indigo-400 transition-colors">
+                    All Registered Users
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Manage registered users with 20 users per batch & Load More pagination.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-indigo-400">
+                    View Users ({stats.usersCount || users.length}) ➔
+                  </span>
+                </button>
+
+                {/* Card 3: Purchased Orders */}
+                <button
+                  onClick={() => setActiveTab('orders-all')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-emerald-500/30 hover:border-emerald-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    📥
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-emerald-400 transition-colors">
+                    Purchased Orders
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    View generated wishing links, payment proofs, and live site links.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-emerald-400">
+                    Manage Orders ({orders.length}) ➔
+                  </span>
+                </button>
+
+                {/* Card 4: Permanent Requests */}
+                <button
+                  onClick={() => setActiveTab('orders-permanent')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-amber-500/30 hover:border-amber-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    💎
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-amber-400 transition-colors">
+                    Permanent Lifetime Links
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Manage premium lifetime valid wishing websites stored in Permanent DB.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-amber-400">
+                    View Permanent ({stats.permOrdersCount || 0}) ➔
+                  </span>
+                </button>
+
+                {/* Card 5: Templates Manager */}
+                <button
+                  onClick={() => setActiveTab('templates')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-sky-500/30 hover:border-sky-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    🎨
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-sky-400 transition-colors">
+                    Templates Store Manager
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Edit pricing, image limits, tags, priority, and delete old templates.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-sky-400">
+                    Manage Templates ({templates.length}) ➔
+                  </span>
+                </button>
+
+                {/* Card 6: Feedbacks */}
+                <button
+                  onClick={() => setActiveTab('feedback')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-purple-500/30 hover:border-purple-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    💬
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-purple-400 transition-colors">
+                    Feedbacks & Reviews
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Read customer ratings, feature requests, and user feedback messages.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-purple-400">
+                    View Feedbacks ({feedbacks.length}) ➔
+                  </span>
+                </button>
+
+                {/* Card 7: Pending Approval */}
+                <button
+                  onClick={() => setActiveTab('orders-pending')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-cyan-500/30 hover:border-cyan-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    ⏳
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-cyan-400 transition-colors">
+                    Pending Proof Approvals
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Review payment screenshots uploaded by users for manual UPI verification.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-cyan-400">
+                    Check Pending ➔
+                  </span>
+                </button>
+
+                {/* Card 8: System Settings */}
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="group p-6 rounded-2xl bg-slate-900/80 hover:bg-slate-800 border border-slate-700 hover:border-slate-500 text-left transition-all duration-200 shadow-lg cursor-pointer"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center text-xl mb-4 group-hover:scale-110 transition-transform">
+                    ⚙️
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-slate-300 transition-colors">
+                    System & Site Config
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Configure website coin visibility, default link validity, and API settings.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-slate-300">
+                    Open Settings ➔
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- 2. DEDICATED ALL USERS PAGE (20 PER BATCH + LOAD MORE) ---------------- */}
+        {activeTab === 'users' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Web Name (Title) *</label>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Users className="w-5 h-5 text-indigo-400" />
+                  All Registered Users ({totalUsersCount})
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Showing 20 users per batch. Use the Load More button at the bottom to load the next 20 users.
+                </p>
+              </div>
+
+              {/* User Search Form */}
+              <form onSubmit={handleUserSearchSubmit} className="flex gap-2 w-full sm:w-auto">
+                <div className="relative flex-1 sm:w-64">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search name or email..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition cursor-pointer"
+                >
+                  Search
+                </button>
+              </form>
+            </div>
+
+            {/* Users Table */}
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+                    <tr>
+                      <th className="py-3.5 px-4">User</th>
+                      <th className="py-3.5 px-4">Email</th>
+                      <th className="py-3.5 px-4">Joined Date</th>
+                      <th className="py-3.5 px-4">Total Links Created</th>
+                      <th className="py-3.5 px-4">Role Status</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {users.map((u) => (
+                      <tr key={u._id} className="hover:bg-slate-800/50 transition">
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={
+                                u.avatarUrl ||
+                                `https://api.dicebear.com/7.x/notionists/svg?seed=${u.username || 'user'}`
+                              }
+                              alt=""
+                              className="w-9 h-9 rounded-xl border border-slate-700 bg-slate-800 shrink-0"
+                            />
+                            <div>
+                              <span className="font-bold text-white block">{u.username || 'User'}</span>
+                              <span className="text-[10px] text-slate-500 font-mono">ID: {u._id}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="py-3.5 px-4 font-mono text-slate-300">
+                          {u.email || 'N/A'}
+                        </td>
+
+                        <td className="py-3.5 px-4 text-slate-400">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'Earlier'}
+                        </td>
+
+                        <td className="py-3.5 px-4 font-bold text-rose-400">
+                          {u.totalLinksCount || 0} Links
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                              u.role === 'admin' || u.isAdmin
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                : 'bg-slate-800 text-slate-300 border-slate-700'
+                            }`}
+                          >
+                            {u.role === 'admin' || u.isAdmin ? '👑 Admin Master' : 'Verified User'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right space-x-2">
+                          <button
+                            onClick={() => handleToggleUserRole(u._id)}
+                            className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[11px] font-bold transition cursor-pointer"
+                          >
+                            {u.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteUser(u._id, u.username || u.email)}
+                            className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition cursor-pointer inline-flex items-center justify-center"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Load More Button (20 Per Page) */}
+              {hasMoreUsers && (
+                <div className="p-4 text-center border-t border-slate-800 bg-slate-950/60">
+                  <button
+                    onClick={handleLoadMoreUsers}
+                    disabled={loadingMoreUsers}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-xs px-6 py-2.5 rounded-xl shadow-md disabled:opacity-50 transition cursor-pointer"
+                  >
+                    {loadingMoreUsers ? (
+                      <span>Loading Next 20 Users...</span>
+                    ) : (
+                      <>
+                        <Users className="w-4 h-4" />
+                        <span>Load More Users (20 More)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- 3. DEDICATED WISH TEMPLATES STORE PAGE ---------------- */}
+        {activeTab === 'templates' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 p-5 rounded-2xl border border-slate-800">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  Wish Templates Collection ({templates.length})
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Manage live interactive wishing templates displayed on the website.
+                </p>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('add-template')}
+                className="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl shadow-md transition cursor-pointer inline-flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Template</span>
+              </button>
+            </div>
+
+            {/* Templates Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {templates.map((t) => (
+                <div
+                  key={t._id || t.id}
+                  className="bg-slate-900/90 rounded-2xl border border-slate-800 overflow-hidden shadow-xl flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="relative aspect-16/10 bg-slate-950 overflow-hidden group">
+                      <img
+                        src={t.imageUrl?.url || t.image || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800'}
+                        alt={t.webName || t.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <span className="bg-slate-950/80 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                          Priority: {t.priority || 10}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-4 space-y-2">
+                      <h3 className="font-bold text-white text-base">
+                        {t.webName || t.title}
+                      </h3>
+                      <p className="text-xs text-slate-400 line-clamp-2">
+                        {t.description || 'Custom interactive wishing webpage'}
+                      </p>
+
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {(t.tags || t.occasions || []).map((tag: string) => (
+                          <span
+                            key={tag}
+                            className="bg-slate-800 text-rose-300 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-slate-500 block text-[10px]">Temp Price:</span>
+                          <span className="font-bold text-emerald-400">
+                            {t.priceForTemporary === 0 ? 'FREE' : `₹${t.priceForTemporary ?? t.price}`}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-slate-500 block text-[10px]">Perm Price:</span>
+                          <span className="font-bold text-amber-400">
+                            ₹{t.priceForPermanent ?? t.originalPrice ?? 399}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-slate-950/60 border-t border-slate-800 flex items-center justify-between gap-2">
+                    <a
+                      href={t.webUrl || t.previewUrl || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-bold text-slate-300 hover:text-white flex items-center gap-1"
+                    >
+                      <span>Preview</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleOpenEditModal(t)}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition cursor-pointer flex items-center gap-1"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> Edit
+                      </button>
+
+                      <button
+                        onClick={() => handleDeleteTemplate(t._id || t.id, t.webName || t.title)}
+                        className="p-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 transition cursor-pointer"
+                        title="Delete Template"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- 4. DEDICATED ADD NEW TEMPLATE PAGE ---------------- */}
+        {activeTab === 'add-template' && (
+          <div className="max-w-3xl mx-auto bg-slate-900/90 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6 animate-in fade-in">
+            <div className="border-b border-slate-800 pb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Plus className="w-5 h-5 text-rose-400" />
+                Add New Wish Template
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Fill in the template parameters below to publish a new wishing website to the store.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateTemplate} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Web Name / Title *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newWebName}
+                    onChange={(e) => setNewWebName(e.target.value)}
+                    placeholder="e.g. 3D Royal Birthday Cake"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Web URL / Live Link *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newWebUrl}
+                    onChange={(e) => setNewWebUrl(e.target.value)}
+                    placeholder="https://all-sub-websites.onrender.com/wish/3d-royal-bday"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="Interactive 3D cake cutting with music, secret love notes, and photo memories..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3.5 text-white focus:outline-none focus:border-rose-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Temp Price (₹)</label>
+                  <input
+                    type="number"
+                    value={newTempPrice}
+                    onChange={(e) => setNewTempPrice(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Perm Price (₹)</label>
+                  <input
+                    type="number"
+                    value={newPermPrice}
+                    onChange={(e) => setNewPermPrice(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Image Needed</label>
+                  <input
+                    type="number"
+                    value={newImageNeeded}
+                    onChange={(e) => setNewImageNeeded(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Priority Order</label>
+                  <input
+                    type="number"
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-300 font-bold mb-1">Thumbnail Cover Image URL</label>
                 <input
                   type="text"
-                  required
-                  value={editWebName}
-                  onChange={(e) => setEditWebName(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
+                  value={newImageUrl}
+                  onChange={(e) => setNewImageUrl(e.target.value)}
+                  placeholder="https://images.unsplash.com/photo-..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-rose-500"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-300 font-semibold mb-1">Live Web Target URL *</label>
-                <input
-                  type="url"
-                  required
-                  value={editWebUrl}
-                  onChange={(e) => setEditWebUrl(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Cover Image URL</label>
-                <input
-                  type="text"
-                  value={editImageUrl}
-                  onChange={(e) => setEditImageUrl(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Temp Price (₹)</label>
-                  <input
-                    type="number"
-                    value={editTempPrice}
-                    onChange={(e) => setEditTempPrice(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Perm Price (₹)</label>
-                  <input
-                    type="number"
-                    value={editPermPrice}
-                    onChange={(e) => setEditPermPrice(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Photos Needed</label>
-                  <input
-                    type="number"
-                    value={editImageNeeded}
-                    onChange={(e) => setEditImageNeeded(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-300 font-semibold mb-1">Priority Order</label>
-                  <input
-                    type="number"
-                    value={editPriority}
-                    onChange={(e) => setEditPriority(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1.5">
-                  Category Tags:
-                </label>
-                <div className="flex flex-wrap gap-1.5 p-2 bg-slate-800 rounded-xl border border-slate-700 max-h-32 overflow-y-auto">
+                <label className="block text-slate-300 font-bold mb-2">Category Tags</label>
+                <div className="flex flex-wrap gap-2 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
                   {CATEGORY_OPTIONS.map((cat) => {
-                    const isSel = selectedEditCategories.includes(cat);
+                    const isSelected = selectedNewCategories.includes(cat);
                     return (
                       <button
                         key={cat}
                         type="button"
-                        onClick={() => toggleCategorySelection(cat, true)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
-                          isSel
-                            ? 'bg-amber-400 text-slate-950'
-                            : 'bg-slate-900 text-slate-400 hover:text-slate-200'
+                        onClick={() => {
+                          setSelectedNewCategories((prev) =>
+                            isSelected ? prev.filter((c) => c !== cat) : [...prev, cat]
+                          );
+                        }}
+                        className={`px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                          isSelected
+                            ? 'bg-rose-500 text-white font-bold'
+                            : 'bg-slate-800 text-slate-400 hover:text-white'
                         }`}
                       >
                         {cat}
@@ -1232,65 +1189,410 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-slate-300 font-semibold mb-1">Description</label>
-                <textarea
-                  rows={2}
-                  value={editDesc}
-                  onChange={(e) => setEditDesc(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl p-2 text-white"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setEditingTemplate(null)}
-                  className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
+              <div className="pt-4 flex gap-3">
                 <button
                   type="submit"
                   disabled={templateSubmitLoading}
-                  className="flex-1 bg-amber-400 hover:bg-amber-500 text-slate-950 font-extrabold py-2.5 rounded-xl cursor-pointer"
+                  className="flex-1 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg transition cursor-pointer"
                 >
-                  {templateSubmitLoading ? 'Saving...' : 'Save Template Changes'}
+                  {templateSubmitLoading ? 'Saving...' : 'Publish Template to Store'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('templates')}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 px-6 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
                 </button>
               </div>
             </form>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Payment Screenshot Proof Fullscreen Viewer Modal */}
-      {selectedProofUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="relative max-w-xl w-full bg-slate-900 p-4 rounded-3xl border border-slate-700 shadow-2xl">
-            <button
-              onClick={() => setSelectedProofUrl(null)}
-              className="absolute right-4 top-4 bg-slate-800 text-slate-300 hover:text-white p-2 rounded-full cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <h3 className="text-sm font-bold text-white mb-3">UPI Payment Screenshot Proof</h3>
-            <div className="max-h-[75vh] overflow-y-auto rounded-2xl border border-slate-800">
-              <img src={selectedProofUrl} alt="Payment Proof" className="w-full h-auto object-contain" />
+        {/* ---------------- 5. DEDICATED PURCHASED ORDERS PAGE ---------------- */}
+        {activeTab.startsWith('orders-') && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Filter Tabs for Orders */}
+            <div className="flex items-center justify-between bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setActiveTab('orders-all')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
+                    activeTab === 'orders-all' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  All Orders ({orders.length})
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('orders-pending')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
+                    activeTab === 'orders-pending' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  Pending Proofs ({orders.filter((o) => o.paymentProofUrl && !o.isLive).length})
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('orders-permanent')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
+                    activeTab === 'orders-permanent' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  Permanent Links ({stats.permOrdersCount || 0})
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('orders-live')}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
+                    activeTab === 'orders-live' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  Active Live Links ({orders.filter((o) => o.isLive).length})
+                </button>
+              </div>
             </div>
-            <div className="mt-4 text-center">
-              <a
-                href={selectedProofUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 bg-amber-400 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl"
-              >
-                <span>Open Full Original Image</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
+
+            {/* Orders Table */}
+            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+                    <tr>
+                      <th className="py-3.5 px-4">Order ID & Date</th>
+                      <th className="py-3.5 px-4">Recipient & Sender</th>
+                      <th className="py-3.5 px-4">Live Wish URL</th>
+                      <th className="py-3.5 px-4">Plan & Price</th>
+                      <th className="py-3.5 px-4">Payment Proof</th>
+                      <th className="py-3.5 px-4">Status</th>
+                      <th className="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {filteredOrders.map((o) => (
+                      <tr key={o.purchaseId || o._id} className="hover:bg-slate-800/50 transition">
+                        <td className="py-3.5 px-4">
+                          <span className="font-mono font-bold text-white block">
+                            {o.purchaseId || o.id}
+                          </span>
+                          <span className="text-[10px] text-slate-500">{o.date || o.purchaseDate}</span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-rose-300 block">To: {o.receiver || o.receiverName}</span>
+                          <span className="text-slate-400 text-[11px]">From: {o.sender || o.senderName}</span>
+                        </td>
+
+                        <td className="py-3.5 px-4 max-w-[200px] truncate">
+                          <a
+                            href={o.wishingUrl || o.webUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="font-mono text-emerald-400 hover:underline text-[11px] truncate block"
+                          >
+                            {o.wishingUrl || o.webUrl}
+                          </a>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span className="font-extrabold text-white block">
+                            {o.price === 0 || o.totalPrice === 0 ? 'FREE' : `₹${o.price || o.totalPrice}`}
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            {o.isTemporary === false ? '💎 Permanent' : '⏳ Temporary'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          {o.paymentProofUrl ? (
+                            <button
+                              onClick={() => setSelectedProofUrl(o.paymentProofUrl)}
+                              className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px] hover:bg-indigo-500/30 transition cursor-pointer flex items-center gap-1"
+                            >
+                              <ImageIcon className="w-3.5 h-3.5" /> View Proof
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-500">None / Free</span>
+                          )}
+                        </td>
+
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                              o.isLive
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                            }`}
+                          >
+                            {o.isLive ? '🟢 Live Active' : '⏳ Pending'}
+                          </span>
+                        </td>
+
+                        <td className="py-3.5 px-4 text-right space-x-2">
+                          <button
+                            onClick={() => handleToggleLiveOrder(o.purchaseId || o._id)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer"
+                          >
+                            {o.isLive ? 'Disable' : 'Approve & Live'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteOrder(o.purchaseId || o._id)}
+                            className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition cursor-pointer"
+                            title="Delete Order"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ---------------- 6. DEDICATED FEEDBACKS PAGE ---------------- */}
+        {activeTab === 'feedback' && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-purple-400" />
+                  Customer Feedbacks & Ratings ({(Array.isArray(feedbacks) ? feedbacks.length : 0)})
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Reviews submitted by users on the VishLink website.
+                </p>
+              </div>
+
+              <button
+                onClick={fetchFeedbacks}
+                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition cursor-pointer shrink-0"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh Feedbacks</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {(!Array.isArray(feedbacks) || feedbacks.length === 0) ? (
+                <div className="col-span-2 p-8 bg-slate-900/90 rounded-2xl border border-slate-800 text-center text-slate-400 text-xs space-y-2">
+                  <MessageSquare className="w-8 h-8 text-purple-400/60 mx-auto mb-2" />
+                  <p className="font-bold text-slate-200">No user feedbacks found.</p>
+                  <p className="text-[11px] text-slate-400">Click "Refresh Feedbacks" to sync latest reviews from the server.</p>
+                </div>
+              ) : (
+                feedbacks.map((f, idx) => {
+                  if (!f) return null;
+                  const feedbackText = f.feedbackmsg || f.suggestion || f.comment || f.message || f.text || f.content || 'User submitted feedback';
+                  const displayName = (f.userName && f.userName !== 'Anonymous User')
+                    ? f.userName
+                    : (f.name && f.name !== 'Anonymous User') 
+                    ? f.name 
+                    : (f.email ? f.email.split('@')[0] : 'Verified Customer');
+
+                  return (
+                    <div
+                      key={f._id || `fb-${idx}`}
+                      className="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 space-y-3 relative hover:border-purple-500/40 transition shadow-lg"
+                    >
+                      <button
+                        onClick={() => handleDeleteFeedback(f._id)}
+                        className="absolute top-4 right-4 text-slate-500 hover:text-red-400 p-1 cursor-pointer"
+                        title="Delete Feedback"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-white text-sm">{displayName}</span>
+                        <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span>{f.rating || 5}/5</span>
+                        </span>
+                      </div>
+
+                      <p className="text-xs text-slate-200 leading-relaxed bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                        "{feedbackText}"
+                      </p>
+
+                      <div className="text-[10px] text-slate-400 border-t border-slate-800/60 pt-2 flex justify-between">
+                        <span>{f.email || 'No email provided'}</span>
+                        <span>{f.createdAt ? new Date(f.createdAt).toLocaleDateString() : ''}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ---------------- 7. DEDICATED SYSTEM SETTINGS PAGE ---------------- */}
+        {activeTab === 'settings' && (
+          <div className="max-w-2xl mx-auto bg-slate-900/90 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-6 animate-in fade-in">
+            <div className="border-b border-slate-800 pb-4">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Settings className="w-5 h-5 text-slate-300" />
+                System & Site Configuration
+              </h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Global settings for VishLink server and frontend defaults.
+              </p>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-white block">Template Coin Price Visibility</span>
+                  <span className="text-slate-400 text-[11px]">Show coin conversion badges next to prices.</span>
+                </div>
+                <button
+                  onClick={() => setShowCoinPrice(!showCoinPrice)}
+                  className={`px-4 py-2 rounded-xl font-bold transition cursor-pointer ${
+                    showCoinPrice ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {showCoinPrice ? 'Enabled' : 'Disabled'}
+                </button>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+                <span className="font-bold text-white block">Database Connection Status</span>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 text-emerald-400 text-xs font-bold">
+                    <CheckCircle2 className="w-4 h-4" /> Primary MongoDB (Active)
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 text-amber-400 text-xs font-bold">
+                    <CheckCircle2 className="w-4 h-4" /> Permanent MongoDB (Active)
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Template Modal */}
+        {editingTemplate && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
+            <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl rounded-3xl p-6 space-y-5 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="font-bold text-white text-base">Edit Template ({editingTemplate.title || editingTemplate.webName})</h3>
+                <button onClick={() => setEditingTemplate(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditTemplate} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Web Name</label>
+                    <input
+                      type="text"
+                      value={editWebName}
+                      onChange={(e) => setEditWebName(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Web URL</label>
+                    <input
+                      type="text"
+                      value={editWebUrl}
+                      onChange={(e) => setEditWebUrl(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-bold mb-1">Description</label>
+                  <textarea
+                    rows={2}
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Temp Price</label>
+                    <input
+                      type="number"
+                      value={editTempPrice}
+                      onChange={(e) => setEditTempPrice(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Perm Price</label>
+                    <input
+                      type="number"
+                      value={editPermPrice}
+                      onChange={(e) => setEditPermPrice(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Image Needed</label>
+                    <input
+                      type="number"
+                      value={editImageNeeded}
+                      onChange={(e) => setEditImageNeeded(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-300 font-bold mb-1">Priority</label>
+                    <input
+                      type="number"
+                      value={editPriority}
+                      onChange={(e) => setEditPriority(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2 py-1.5 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditingTemplate(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 font-bold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={templateSubmitLoading}
+                    className="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                  >
+                    {templateSubmitLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Proof Modal Preview */}
+        {selectedProofUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs">
+            <div className="bg-slate-900 border border-slate-800 max-w-lg w-full rounded-3xl p-5 space-y-4 text-center">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-white text-xs">Payment Proof Screenshot</span>
+                <button onClick={() => setSelectedProofUrl(null)} className="text-slate-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <img src={selectedProofUrl} alt="Payment Proof" className="max-h-[70vh] mx-auto rounded-xl border border-slate-700" />
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 };

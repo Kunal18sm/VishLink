@@ -22,7 +22,6 @@ interface ProfilePageProps {
   purchasedOrders: PurchasedOrder[];
   onBack: () => void;
   onExploreTemplates: () => void;
-  onFindLink: () => void;
   onLogout?: () => void;
   onOpenAdmin?: () => void;
 }
@@ -31,7 +30,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   purchasedOrders: initialOrders,
   onBack,
   onExploreTemplates,
-  onFindLink,
   onLogout,
   onOpenAdmin,
 }) => {
@@ -203,13 +201,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   className="text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 focus:outline-hidden focus:border-[#e15b70]"
                 />
               </div>
-
-              <button
-                onClick={onFindLink}
-                className="inline-flex items-center gap-1 text-xs font-bold text-[#e15b70] hover:underline cursor-pointer"
-              >
-                <span>Find Link ➔</span>
-              </button>
             </div>
           </div>
 

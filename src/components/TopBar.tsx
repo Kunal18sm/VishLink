@@ -2,14 +2,12 @@ import React from 'react';
 import { Sparkles, HelpCircle, User, Globe, Bot } from 'lucide-react';
 
 interface TopBarProps {
-  onOpenTrackOrder: () => void;
   onOpenHelp: () => void;
   onOpenProfile?: () => void;
   onOpenAiChat?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
-  onOpenTrackOrder,
   onOpenHelp,
   onOpenProfile,
   onOpenAiChat,
@@ -48,13 +46,6 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           )}
 
-          <button
-            onClick={onOpenTrackOrder}
-            className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>Find My Link</span>
-          </button>
           <button
             onClick={onOpenHelp}
             className="flex items-center gap-1 hover:text-white transition-colors cursor-pointer"

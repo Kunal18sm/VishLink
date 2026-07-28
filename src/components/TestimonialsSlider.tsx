@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import { TESTIMONIALS } from '../data/mockData';
-import whyHamperImg from '../assets/images/why_vishlink_hamper_1785132294091.jpg';
+
+const whyHamperImg = 'https://images.unsplash.com/photo-1513201099705-a9746e1e201f?auto=format&fit=crop&q=80&w=400';
 
 export const TestimonialsSlider: React.FC = () => {
   const [activeDot, setActiveDot] = useState(0);

@@ -11,11 +11,11 @@ import { FeedbackSection } from './components/FeedbackSection';
 import { InstagramBanner } from './components/InstagramBanner';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
+import { SeoHead } from './components/SeoHead';
 
 // Pages
 import { CustomizePage } from './pages/CustomizePage';
 import { ProfilePage } from './pages/ProfilePage';
-import { FindLinkPage } from './pages/FindLinkPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { TermsPage } from './pages/TermsPage';
@@ -32,7 +32,6 @@ export type PageType =
   | 'home'
   | 'customize'
   | 'profile'
-  | 'find-link'
   | 'about'
   | 'contact'
   | 'terms'
@@ -159,7 +158,6 @@ export default function App() {
     <div className="min-h-screen bg-white font-sans text-slate-800 antialiased selection:bg-rose-100 selection:text-[#e15b70]">
       {/* 1. Top Bar */}
       <TopBar
-        onOpenTrackOrder={() => navigateToPage('find-link')}
         onOpenHelp={() => navigateToPage('faqs')}
         onOpenProfile={() => navigateToPage('profile')}
         onOpenAiChat={() => navigateToPage('ai-chat')}
@@ -182,6 +180,23 @@ export default function App() {
 
       {/* 3. Dynamic Page View */}
       <main>
+        <SeoHead
+          title={
+            currentPage === 'home'
+              ? 'VishLink - Personalized Wishing Website Links | 3D Birthday Cake & Love Story Generator'
+              : currentPage === 'all-templates'
+              ? 'Explore Wish Templates - 3D Cake, Couple Love Story & Celebrations | VishLink'
+              : currentPage === 'customize'
+              ? `Customize ${selectedTemplateForCustomize?.title || 'Wishing Webpage'} | VishLink`
+              : currentPage === 'profile'
+              ? 'My Purchased Wishing Links & Profile | VishLink'
+              : currentPage === 'faqs'
+              ? 'FAQs & Search Guide - WhatsApp Wishing Website Links | VishLink'
+              : currentPage === 'admin'
+              ? 'Admin Master Control Center | VishLink'
+              : 'VishLink - Personalized Wishing Website Links'
+          }
+        />
         {currentPage === 'home' && (
           <>
             <Hero
@@ -237,7 +252,6 @@ export default function App() {
             purchasedOrders={purchasedOrders}
             onBack={() => navigateToPage('home')}
             onExploreTemplates={() => navigateToPage('all-templates')}
-            onFindLink={() => navigateToPage('find-link')}
             onLogout={() => setCurrentUser(null)}
             onOpenAdmin={() => navigateToPage('admin')}
           />
@@ -245,14 +259,6 @@ export default function App() {
 
         {currentPage === 'admin' && (
           <AdminPage onBack={() => navigateToPage('home')} />
-        )}
-
-        {currentPage === 'find-link' && (
-          <FindLinkPage
-            purchasedOrders={purchasedOrders}
-            onBack={() => navigateToPage('home')}
-            onExploreTemplates={() => navigateToPage('all-templates')}
-          />
         )}
 
         {currentPage === 'about' && (
@@ -287,7 +293,6 @@ export default function App() {
       <Footer
         onNavigateToSection={handleNavigateToSection}
         onNavigateToPage={navigateToPage}
-        onOpenTrackOrder={() => navigateToPage('find-link')}
       />
 
       {/* 5. Auth Modal */}

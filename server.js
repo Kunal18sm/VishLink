@@ -655,10 +655,33 @@ app.get('/api/admin/orders', authenticateToken, adminOnly, async (req, res) => {
   }
 });
 
-// Admin Users List
+// Admin Users List (Paginated 20 per batch + Search)
 app.get('/api/admin/users', authenticateToken, adminOnly, async (req, res) => {
   try {
-    const users = await User.find({}).select('-passwordHash').sort({ createdAt: -1 }).lean();
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit) || 20);
+    const search = req.query.search ? req.query.search.trim() : '';
+
+    let filter = {};
+    if (search) {
+      filter = {
+        $or: [
+          { username: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+        ],
+      };
+    }
+
+    const totalUsers = await User.countDocuments(filter);
+    const totalPages = Math.ceil(totalUsers / limit) || 1;
+    const skip = (page - 1) * limit;
+
+    const users = await User.find(filter)
+      .select('-passwordHash')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     const formattedUsers = await Promise.all(
       users.map(async (u) => {
@@ -671,7 +694,15 @@ app.get('/api/admin/users', authenticateToken, adminOnly, async (req, res) => {
       })
     );
 
-    res.json({ success: true, users: formattedUsers });
+    res.json({
+      success: true,
+      users: formattedUsers,
+      page,
+      limit,
+      totalUsers,
+      totalPages,
+      hasMore: page < totalPages,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -867,26 +898,39 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
 // ---------------- FEEDBACK & SUGGESTIONS ROUTE ---------------- //
 
 const feedbackSchema = new mongoose.Schema({
-  name: { type: String, default: 'Anonymous User' },
+  feedbackmsg: { type: String, default: '' },
+  suggestion: { type: String, default: '' },
+  comment: { type: String, default: '' },
+  message: { type: String, default: '' },
+  text: { type: String, default: '' },
+  content: { type: String, default: '' },
   email: { type: String, default: '' },
+  userName: { type: String, default: '' },
+  name: { type: String, default: '' },
   rating: { type: Number, default: 5 },
-  suggestion: { type: String, required: true },
   createdAt: { type: Date, default: Date.now },
+  date: { type: Date, default: Date.now },
 });
-const Feedback = mongoose.model('Feedback', feedbackSchema);
+const Feedback = mongoose.model('feedback', feedbackSchema, 'feedbacks');
 
 app.post('/api/feedback', async (req, res) => {
   try {
-    const { name, email, rating, suggestion } = req.body;
-    if (!suggestion || !suggestion.trim()) {
-      return res.status(400).json({ success: false, message: 'Suggestion is required.' });
+    const { name, userName, email, rating, suggestion, feedbackmsg, comment, message } = req.body;
+    const bodyText = (feedbackmsg || suggestion || comment || message || '').trim();
+    if (!bodyText) {
+      return res.status(400).json({ success: false, message: 'Feedback message is required.' });
     }
 
+    const cleanName = (name || userName || '').trim() || 'Anonymous User';
+
     const newFeedback = new Feedback({
-      name: name?.trim() || 'Anonymous User',
+      feedbackmsg: bodyText,
+      suggestion: bodyText,
+      comment: bodyText,
+      userName: cleanName,
+      name: cleanName,
       email: email?.trim() || '',
       rating: Number(rating) || 5,
-      suggestion: suggestion.trim(),
     });
 
     await newFeedback.save();
@@ -898,10 +942,32 @@ app.post('/api/feedback', async (req, res) => {
 
 app.get('/api/admin/feedback', authenticateToken, adminOnly, async (req, res) => {
   try {
-    const feedbacks = await Feedback.find().sort({ createdAt: -1 }).limit(100);
+    let rawFeedbacks = [];
+    try {
+      rawFeedbacks = await Feedback.find().sort({ date: -1, createdAt: -1 }).limit(100).lean();
+    } catch (dbErr) {
+      console.error('Feedback DB query error:', dbErr.message);
+    }
+
+    const feedbacks = rawFeedbacks.map((f) => {
+      const realMessage = f.feedbackmsg || f.suggestion || f.comment || f.message || f.text || f.content || '';
+      const realName = f.userName || f.name || (f.email ? f.email.split('@')[0] : 'Anonymous User');
+
+      return {
+        _id: String(f._id || Math.random()),
+        name: realName,
+        email: f.email || 'No email provided',
+        rating: Number(f.rating) || 5,
+        suggestion: realMessage || 'User feedback submitted',
+        feedbackmsg: realMessage,
+        createdAt: f.date || f.createdAt || new Date(),
+      };
+    });
+
     res.json({ success: true, feedbacks });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Admin feedback fetch error:', err);
+    res.status(500).json({ success: false, message: err.message, feedbacks: [] });
   }
 });
 

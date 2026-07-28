@@ -199,7 +199,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
           <span className="text-[#e15b70] text-xs font-bold uppercase tracking-wider bg-rose-50 px-3 py-1 rounded-full border border-rose-100">
             Personalize & Generate Wishing Webpage
           </span>
-          <h1 className="font-serif text-3xl md:text-4xl font-bold text-slate-900 mt-2">
+          <h1 className="font-sans text-2xl sm:text-3xl font-bold text-slate-900 mt-2 tracking-tight">
             Customize {template.title}
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-1">
@@ -427,10 +427,10 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       </p>
                       <a
                         href={`upi://pay?pa=yash.97184@ybl&pn=VishLink&am=${totalPrice}&cu=INR&tn=VishLink%20Purchase`}
-                        className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs py-3 px-4 rounded-xl shadow-md transition cursor-pointer"
+                        className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs sm:text-sm py-3.5 px-4 rounded-xl shadow-md transition cursor-pointer"
                       >
-                        <CreditCard className="w-4 h-4" />
-                        <span>Pay ₹{totalPrice} via UPI App (GPay / PhonePe / Paytm)</span>
+                        <CreditCard className="w-4.5 h-4.5" />
+                        <span>👉 Click to Pay ₹{totalPrice} via UPI (GPay / PhonePe / Paytm)</span>
                       </a>
                     </div>
 
@@ -481,17 +481,17 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-4 text-sm font-bold text-white shadow-lg shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-4 text-sm font-extrabold text-white shadow-lg shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
               >
                 {loading ? (
                   <span>Processing & Generating Link...</span>
                 ) : totalPrice === 0 ? (
                   <>
-                    <Sparkles className="h-5 w-5" /> Create Free Wish Link Now
+                    <Sparkles className="h-5 w-5" /> Click to Create Free Wish Link Now
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-5 w-5" /> Generate Link
+                    <Sparkles className="h-5 w-5" /> Click to Pay & Create Wish Link Now
                   </>
                 )}
               </button>

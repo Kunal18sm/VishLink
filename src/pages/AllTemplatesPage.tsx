@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   ArrowLeft,
   Sparkles,
@@ -7,6 +7,8 @@ import {
   Star,
   Eye,
   Filter,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { TemplateItem } from '../types';
 
@@ -27,6 +29,14 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
     initialCategory || 'all'
   );
   const [searchQuery, setSearchQuery] = useState('');
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleScrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      const scrollAmount = direction === 'left' ? -260 : 260;
+      categoryScrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
 
   const categories = [
     { id: 'all', label: 'All Templates' },
@@ -105,7 +115,7 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
             All Wishing Website Templates
           </h1>
           <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-            Click on any template image to view its live website preview, or click Personalize to create your wish link.
+            Select any template to customize your wish link, add recipient names, photos, special message, and view your live website.
           </p>
         </div>
 
@@ -123,24 +133,48 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           </div>
 
-          {/* Categories Pill Bar */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 pt-2 justify-start sm:justify-center scrollbar-none">
-            {categories.map((cat) => {
-              const isActive = selectedCategory === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className={`whitespace-nowrap rounded-2xl px-4 py-2 text-xs font-bold transition-all cursor-pointer ${
-                    isActive
-                      ? 'bg-gradient-to-r from-[#e15b70] to-[#d4485e] text-white shadow-md shadow-rose-200'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              );
-            })}
+          {/* Categories Pill Bar with Left/Right Scroll Arrows */}
+          <div className="relative flex items-center gap-2 max-w-full my-2">
+            <button
+              onClick={() => handleScrollCategories('left')}
+              className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-[#e15b70] border border-slate-200 shadow-xs shrink-0 transition cursor-pointer z-10"
+              title="Scroll Left"
+              aria-label="Scroll Categories Left"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <div
+              ref={categoryScrollRef}
+              className="flex items-center gap-2 overflow-x-auto py-2 px-1 scroll-smooth w-full no-scrollbar"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+            >
+              {categories.map((cat) => {
+                const isActive = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`whitespace-nowrap rounded-2xl px-4 py-2 text-xs font-bold transition-all cursor-pointer shrink-0 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-[#e15b70] to-[#d4485e] text-white shadow-md shadow-rose-200 scale-102'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => handleScrollCategories('right')}
+              className="p-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 hover:text-[#e15b70] border border-slate-200 shadow-xs shrink-0 transition cursor-pointer z-10"
+              title="Scroll Right"
+              aria-label="Scroll Categories Right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Results Count */}
@@ -173,42 +207,36 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
               return (
                 <div
                   key={template.id}
-                  className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group"
+                  className="bg-white rounded-3xl overflow-hidden border border-slate-200/80 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col group cursor-pointer"
+                  onClick={() => onOpenCustomizeModal(template)}
                 >
-                  {/* Image Container - object-contain full width display */}
+                  {/* Image Container - Full-bleed crisp HD cover display */}
                   <div
-                    onClick={() => handleOpenLivePreview(template)}
-                    className="relative aspect-[16/11] bg-slate-900/5 cursor-pointer flex items-center justify-center p-1.5 overflow-hidden"
-                    title="Click to view live template preview"
+                    className="relative aspect-[16/10] bg-slate-100 overflow-hidden border-b border-slate-200/80"
+                    title="Click to personalize & create wishing webpage"
                   >
                     <img
                       src={template.image}
                       alt={template.title}
                       referrerPolicy="no-referrer"
-                      className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out rounded-xl"
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
                     />
 
                     {/* Gradient Overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent opacity-30 group-hover:opacity-50 transition-opacity rounded-2xl pointer-events-none" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/20 via-transparent to-transparent opacity-20 group-hover:opacity-40 transition-opacity rounded-2xl pointer-events-none" />
 
-                    {/* Live Preview Button Hint on Image Hover */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-950/30 backdrop-blur-[2px]">
-                      <span className="inline-flex items-center gap-2 bg-white text-slate-900 text-xs font-bold px-4 py-2 rounded-full shadow-lg transform group-hover:scale-105 transition-transform">
-                        <Eye className="w-4 h-4 text-[#e15b70]" />
-                        <span>Live Preview</span>
-                        <ExternalLink className="w-3.5 h-3.5 text-slate-400" />
+                    {/* Personalize Purchase Form Hint on Image Hover */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-slate-900/30 backdrop-blur-[2px]">
+                      <span className="inline-flex items-center gap-1.5 bg-[#e15b70] text-white text-xs font-bold px-4 py-2 rounded-full shadow-lg border border-white/20">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Customize & Order Form</span>
                       </span>
                     </div>
 
-                    {/* Badge */}
-                    {template.badge && (
-                      <span className="absolute top-3 left-3 bg-white/95 backdrop-blur-md text-[#e15b70] text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm border border-rose-100">
-                        {template.badge}
-                      </span>
-                    )}
-
                     {/* Rating Badge */}
-                    <div className="absolute bottom-3 right-3 bg-slate-950/70 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm">
+                    <div className="absolute bottom-3 right-3 bg-slate-900/80 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-sm border border-white/10">
                       <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                       <span>{template.rating || 4.9}</span>
                     </div>
@@ -219,8 +247,7 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
                     <div className="space-y-1.5">
                       {/* Title */}
                       <h3
-                        onClick={() => handleOpenLivePreview(template)}
-                        className="font-serif font-bold text-slate-900 text-xl line-clamp-1 group-hover:text-[#e15b70] transition-colors cursor-pointer"
+                        className="font-sans font-bold text-slate-900 text-xl line-clamp-1 group-hover:text-[#e15b70] transition-colors"
                       >
                         {template.title}
                       </h3>
@@ -250,7 +277,10 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
 
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleOpenLivePreview(template)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenLivePreview(template);
+                          }}
                           className="p-2.5 rounded-2xl border border-slate-200 text-slate-600 hover:text-[#e15b70] hover:bg-rose-50 hover:border-rose-200 transition-colors"
                           title="Open Live Preview Link"
                         >
@@ -258,7 +288,10 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
                         </button>
 
                         <button
-                          onClick={() => onOpenCustomizeModal(template)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenCustomizeModal(template);
+                          }}
                           className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-md shadow-rose-200 hover:shadow-lg transition-all cursor-pointer"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
