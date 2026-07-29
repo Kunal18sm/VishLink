@@ -272,7 +272,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
           </div>
 
           {/* Right Side: Form Inputs */}
-          <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xs relative z-0">
+          <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-3xl border border-rose-100/90 shadow-xl shadow-rose-900/5 hover:shadow-2xl transition-all duration-300 relative z-0">
             <form onSubmit={handleSubmitOrder} className="space-y-6">
               {/* Section 1: Names */}
               <div>
@@ -430,7 +430,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                         className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs sm:text-sm py-3.5 px-4 rounded-xl shadow-md transition cursor-pointer"
                       >
                         <CreditCard className="w-4.5 h-4.5" />
-                        <span>👉 Click to Pay ₹{totalPrice} via UPI (GPay / PhonePe / Paytm)</span>
+                        <span>Pay ₹{totalPrice} via UPI</span>
                       </a>
                     </div>
 
@@ -481,17 +481,13 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-4 text-sm font-extrabold text-white shadow-lg shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-sm font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
               >
                 {loading ? (
-                  <span>Processing & Generating Link...</span>
-                ) : totalPrice === 0 ? (
-                  <>
-                    <Sparkles className="h-5 w-5" /> Click to Create Free Wish Link Now
-                  </>
+                  <span>Generating Link...</span>
                 ) : (
                   <>
-                    <Sparkles className="h-5 w-5" /> Click to Pay & Create Wish Link Now
+                    <Sparkles className="h-4 w-4" /> Create Wish Link
                   </>
                 )}
               </button>
@@ -499,14 +495,14 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
               {/* Try Free Templates Option */}
               {onExploreFreeTemplates && (
                 <div className="pt-4 text-center border-t border-slate-100 space-y-2">
-                  <p className="text-xs text-slate-500">Want to test VishLink first without paying?</p>
+                  <p className="text-xs text-slate-500 font-medium">Want to test VishLink first without paying?</p>
                   <button
                     type="button"
                     onClick={onExploreFreeTemplates}
-                    className="inline-flex items-center gap-2 text-xs font-bold text-[#e15b70] hover:text-[#c94358] bg-rose-50 hover:bg-rose-100 border border-rose-200 px-5 py-2.5 rounded-xl transition cursor-pointer"
+                    className="animate-glow-shine inline-flex items-center gap-2 text-xs font-black text-[#e15b70] hover:text-[#c94358] bg-gradient-to-r from-rose-50 via-rose-100 to-rose-50 border-2 border-rose-300 px-6 py-3 rounded-2xl transition-all cursor-pointer shadow-md"
                   >
-                    <Gift className="w-4 h-4" />
-                    <span>Try Free Templates First</span>
+                    <Gift className="w-4 h-4 text-[#e15b70] animate-bounce" />
+                    <span>Try Free Templates First 🎁</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>

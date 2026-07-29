@@ -32,7 +32,7 @@ export const InstagramBanner: React.FC = () => {
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-200">
                   <Instagram className="w-3 h-3" /> @vish_link18
                 </span>
-                <span className="text-[11px] text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">⚡ Fast Reply Guaranteed</span>
+                <span className="text-[11px] text-rose-600 font-semibold bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200">✨ Custom Design Studio</span>
               </div>
             </div>
 

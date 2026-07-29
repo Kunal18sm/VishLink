@@ -15,8 +15,10 @@ import {
   Clock,
   Crown,
   Heart,
+  AlertCircle,
 } from 'lucide-react';
 import { PurchasedOrder } from '../types';
+import { InstagramBanner } from '../components/InstagramBanner';
 
 interface ProfilePageProps {
   purchasedOrders: PurchasedOrder[];
@@ -33,10 +35,11 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onLogout,
   onOpenAdmin,
 }) => {
-  const [orders, setOrders] = useState<PurchasedOrder[]>(initialOrders);
+  const [activeOrders, setActiveOrders] = useState<PurchasedOrder[]>(initialOrders);
+  const [historyOrders, setHistoryOrders] = useState<PurchasedOrder[]>(initialOrders);
+  const [profileTab, setProfileTab] = useState<'active' | 'history'>('active');
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
-  const [historySearch, setHistorySearch] = useState('');
 
   // Fetch real user & orders on mount
   useEffect(() => {
@@ -62,11 +65,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         headers: { Authorization: `Bearer ${token}` },
       });
       const orderData = await orderRes.json();
-      if (orderRes.ok && orderData.success && orderData.orders) {
-        setOrders(orderData.orders);
+      if (orderRes.ok && orderData.success) {
+        setActiveOrders(orderData.activeLinks || orderData.orders || []);
+        setHistoryOrders(orderData.historyLinks || orderData.orders || []);
       }
     } catch (err) {
-      console.error('Failed to fetch profile data:', err);
+      console.log('Profile data fetch error:', err);
     }
   };
 
@@ -86,19 +90,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const text = `🎉 Hey ${order.receiverName}! I created a special wishing website just for you! 💖\n\nClick here to view your surprise: ${order.wishingUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
-
-  const filteredOrders = orders.filter((o) => {
-    if (!historySearch.trim()) return true;
-    const q = historySearch.toLowerCase();
-    return (
-      o.id?.toLowerCase().includes(q) ||
-      o.receiverName?.toLowerCase().includes(q) ||
-      o.senderName?.toLowerCase().includes(q) ||
-      o.specialMessage?.toLowerCase().includes(q) ||
-      o.wishingUrl?.toLowerCase().includes(q)
-    );
-  });
-
   return (
     <div className="py-8 bg-slate-50 min-h-[85vh]">
       <div className="max-w-5xl mx-auto px-4 space-y-8">
@@ -153,7 +144,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-8 pt-3 text-xs">
                 <div>
                   <span className="text-slate-400 block text-xs">Purchased Links</span>
-                  <span className="font-bold text-white text-lg">{orders.length} Active</span>
+                  <span className="font-bold text-white text-lg">{activeOrders.length} Active</span>
                 </div>
                 <div className="border-l border-slate-700 pl-8">
                   <span className="text-slate-400 block text-xs">Account Status</span>
@@ -181,30 +172,44 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         <div className="bg-white rounded-3xl border border-slate-200/80 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div>
-              <h2 className="font-serif text-xl sm:text-2xl font-bold text-slate-900">
-                Purchased Wish Links History
+              <h2 className="font-serif text-lg sm:text-xl font-bold text-slate-900">
+                My Wish Links
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Complete history of your generated wishing websites and permanent links.
-              </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              {/* Search History */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  value={historySearch}
-                  onChange={(e) => setHistorySearch(e.target.value)}
-                  placeholder="Search history..."
-                  className="text-xs bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 focus:outline-hidden focus:border-[#e15b70]"
-                />
-              </div>
+            {/* 2-Tab Switcher: Active Links & Order History */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
+              <button
+                onClick={() => setProfileTab('active')}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  profileTab === 'active'
+                    ? 'bg-white text-[#e15b70] shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Active Wish Links ({activeOrders.length})
+              </button>
+
+              <button
+                onClick={() => setProfileTab('history')}
+                className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                  profileTab === 'history'
+                    ? 'bg-white text-[#e15b70] shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All Orders History ({historyOrders.length})
+              </button>
             </div>
           </div>
 
-          {filteredOrders.length === 0 ? (
+          {(() => {
+            const filteredOrders = [...(profileTab === 'active' ? activeOrders : historyOrders)].sort((a: any, b: any) => {
+              const tA = Number(a.rawDate || new Date(a.purchaseDate || 0).getTime() || 0);
+              const tB = Number(b.rawDate || new Date(b.purchaseDate || 0).getTime() || 0);
+              return tB - tA;
+            });
+            return filteredOrders.length === 0 ? (
             <div className="p-10 text-center space-y-4">
               <div className="w-16 h-16 rounded-2xl bg-rose-50 text-[#e15b70] flex items-center justify-center mx-auto">
                 <ShoppingBag className="w-8 h-8" />
@@ -228,12 +233,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   key={order.id}
                   className="bg-slate-50/70 rounded-2xl border border-slate-200 p-5 space-y-4 hover:border-rose-200 transition-all"
                 >
-                  {/* Top Bar: Order ID, Date, Plan Badge, Status */}
+                  {/* Top Bar: Date, Plan Badge, Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200/80 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-bold text-slate-900">ID: {order.id}</span>
-                      <span className="text-slate-300">•</span>
-                      <span className="text-slate-500">{order.purchaseDate}</span>
+                      <span className="text-slate-500 font-semibold">{order.purchaseDate}</span>
                       <span className="text-slate-300">•</span>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -250,29 +253,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <span className="font-extrabold text-slate-900 text-xs">
                         {order.totalPrice === 0 ? 'FREE' : `₹${order.totalPrice}`}
                       </span>
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        {order.status}
-                      </span>
+                      {(order as any).isFakePaymentProof ? (
+                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-red-200" title={(order as any).adminFakePaymentNote || 'Fake payment proof rejected by admin'}>
+                          <AlertCircle className="w-3 h-3 text-red-600" />
+                          Fake Payment Rejected
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          {order.status}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Body Content */}
                   <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                    <div className="md:col-span-4 flex items-center gap-3">
-                      <img
-                        src={order.uploadedImages?.[0] || order.template?.image || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=300'}
-                        alt=""
-                        className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0 bg-slate-100"
-                      />
-                      <div>
-                        <h4 className="font-bold text-slate-900 text-sm">
-                          {order.template?.title || order.templateName || 'Personalized Wishing Webpage'}
-                        </h4>
-                        <p className="text-xs text-[#e15b70] font-semibold mt-0.5">
-                          For: {order.receiverName}
-                        </p>
-                        <p className="text-[11px] text-slate-500">From: {order.senderName}</p>
+                    <div className="md:col-span-4 space-y-1">
+                      <h4 className="font-bold text-slate-900 text-base leading-snug">
+                        {(order as any).templateName || (order as any).webName || order.template?.title || 'Wishing Website'}
+                      </h4>
+                      <div className="flex items-center justify-between text-xs font-semibold pt-0.5">
+                        <span className="text-[#e15b70]">For: {order.receiverName}</span>
+                        <span className="text-slate-500">From: {order.senderName}</span>
                       </div>
                     </div>
 
@@ -294,9 +297,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       </div>
                       <p className="text-xs font-mono font-bold text-[#e15b70] truncate">
                         {order.wishingUrl}
-                      </p>
-                      <p className="text-[11px] text-slate-500 mt-1 line-clamp-1 italic">
-                        "{order.specialMessage}"
                       </p>
                     </div>
 
@@ -345,7 +345,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </div>
               ))}
             </div>
-          )}
+          );
+        })()}
+        </div>
+
+        {/* Instagram Social Banner */}
+        <div className="mt-8">
+          <InstagramBanner />
         </div>
       </div>
     </div>

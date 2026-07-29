@@ -56,3 +56,18 @@
   background-color: #fff8f7;
 }
 
+/* Continuous Glow & Shine Animation for Try Free Button */
+@keyframes glowShine {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(225, 91, 112, 0.4), 0 0 20px rgba(225, 91, 112, 0.2);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 22px rgba(225, 91, 112, 0.75), 0 0 38px rgba(225, 91, 112, 0.45);
+    transform: scale(1.03);
+  }
+}
+
+.animate-glow-shine {
+  animation: glowShine 2s infinite ease-in-out;
+}

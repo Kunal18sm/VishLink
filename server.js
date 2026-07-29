@@ -525,6 +525,8 @@ app.post(
       }
 
       const costAmount = Number(totalPrice) || (isTemp ? (selectedWeb?.priceForTemporary || 199) : (selectedWeb?.priceForPermanent || 399));
+      const isFreeLink = costAmount === 0;
+      const isLiveStatus = isFreeLink; // Free links are auto live, paid links require Admin approval (isLive = false)
 
       const orderDataPayload = {
         purchaseId,
@@ -542,7 +544,9 @@ app.post(
         themeColor: themeColor || 'Rose Pink',
         author: authorUser ? authorUser._id : null,
         isTemporary: isTemp,
-        isLive: true,
+        isLive: isLiveStatus,
+        adminInteracted: isFreeLink ? true : false,
+        adminInterected: isFreeLink ? true : false,
         expiresAt: isTemp ? new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) : null,
       };
 
@@ -556,14 +560,38 @@ app.post(
         await newOrder.save();
       }
 
+      if (authorUser) {
+        try {
+          await User.findByIdAndUpdate(authorUser._id, {
+            $push: {
+              webCollection: {
+                purchasedId: newOrder._id,
+                webName: newOrder.webName,
+                dateOfBuy: newOrder.date || new Date(),
+                receiver: newOrder.receiver,
+                price: newOrder.price,
+                purchaseMode: 'upi',
+                paidCredits: 0,
+                expiresAt: newOrder.expiresAt,
+                paymentProofUrl: paymentProofObj,
+                permanentLink: !isTemp && isLiveStatus ? newOrder.webUrl : '',
+              },
+            },
+          });
+        } catch (pushErr) {
+          console.log('webCollection push error:', pushErr.message);
+        }
+      }
+
       res.json({
         success: true,
-        message: 'Wish Link created successfully!',
+        message: isLiveStatus ? 'Wish Link created successfully!' : 'Wish Link submitted! Awaiting Admin Approval & Payment Verification.',
         order: {
           id: newOrder.purchaseId,
           wishingSlug: purchaseId,
           wishingUrl: newOrder.webUrl,
           templateName: newOrder.webName,
+          webName: newOrder.webName,
           senderName: newOrder.sender,
           receiverName: newOrder.receiver,
           specialMessage: newOrder.specialMsg[0],
@@ -572,7 +600,7 @@ app.post(
           musicTrack: newOrder.musicTrack,
           totalPrice: newOrder.price,
           purchaseDate: new Date(newOrder.date).toLocaleDateString(),
-          status: 'Active & Ready',
+          status: isLiveStatus ? 'Active & Ready' : 'Pending Admin Approval',
         },
       });
     } catch (err) {
@@ -582,30 +610,74 @@ app.post(
   }
 );
 
-// My Orders List
+// My Orders List (Active Wish Links + Complete Order History from webCollection)
 app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
   try {
     const tempOrders = await PurchasedWeb.find({ author: req.user.id }).sort({ date: -1 }).lean();
     const permOrders = await PermanentPurchasedWeb.find({ author: req.user.id }).sort({ date: -1 }).lean();
+    const currentUser = await User.findById(req.user.id).select('webCollection').lean();
 
-    const combined = [...tempOrders, ...permOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const activeCombined = [...tempOrders, ...permOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    const formattedOrders = combined.map((o) => ({
-      id: o.purchaseId,
-      wishingSlug: o.purchaseId,
+    const formattedActiveOrders = activeCombined.map((o) => ({
+      id: o.purchaseId || String(o._id),
+      wishingSlug: o.purchaseId || String(o._id),
       wishingUrl: o.webUrl,
+      templateName: o.webName || 'Wishing Template',
+      webName: o.webName || 'Wishing Template',
       senderName: o.sender,
       receiverName: o.receiver,
       specialMessage: o.specialMsg ? o.specialMsg[0] : '',
       uploadedImages: (o.images || []).map((img) => img.url),
       themeColor: o.themeColor,
       totalPrice: o.price,
-      purchaseDate: new Date(o.date).toLocaleDateString(),
+      rawDate: new Date(o.date || Date.now()).getTime(),
+      purchaseDate: new Date(o.date || Date.now()).toLocaleDateString(),
       status: o.isLive ? 'Active & Ready' : 'Processing',
       musicTrack: o.musicTrack,
       isTemporary: o.isTemporary,
-    }));
-    res.json({ success: true, orders: formattedOrders });
+      isFakePaymentProof: false,
+    })).sort((a, b) => b.rawDate - a.rawDate);
+
+    const webColl = Array.isArray(currentUser?.webCollection) ? currentUser.webCollection : [];
+    const formattedHistoryOrders = webColl
+      .map((item) => ({
+        id: item.purchasedId ? String(item.purchasedId) : String(item._id),
+        wishingSlug: item.purchasedId ? String(item.purchasedId) : String(item._id),
+        wishingUrl: item.permanentLink || '',
+        templateName: item.webName || 'Wish Link Webpage',
+        webName: item.webName || 'Wish Link Webpage',
+        senderName: '',
+        receiverName: item.receiver || '',
+        specialMessage: '',
+        uploadedImages: [],
+        totalPrice: item.price || 0,
+        rawDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).getTime(),
+        purchaseDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).toLocaleDateString(),
+        status: item.isFakePaymentProof ? 'Fake Payment Rejected' : item.permanentLink ? 'Active & Live' : 'Order Recorded',
+        isFakePaymentProof: Boolean(item.isFakePaymentProof),
+        adminFakePaymentNote: item.adminFakePaymentNote || '',
+        isTemporary: true,
+      }));
+
+    const combinedHistory = [...formattedHistoryOrders];
+    formattedActiveOrders.forEach((ao) => {
+      const exists = combinedHistory.some(
+        (ho) => ho.id === ao.id || (ho.wishingUrl && ho.wishingUrl === ao.wishingUrl)
+      );
+      if (!exists) {
+        combinedHistory.push(ao);
+      }
+    });
+
+    combinedHistory.sort((a, b) => b.rawDate - a.rawDate);
+
+    res.json({
+      success: true,
+      orders: formattedActiveOrders,
+      activeLinks: formattedActiveOrders,
+      historyLinks: combinedHistory,
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -637,6 +709,8 @@ app.get('/api/orders/find', async (req, res) => {
         id: order.purchaseId,
         wishingSlug: order.purchaseId,
         wishingUrl: order.webUrl,
+        templateName: order.webName || 'Wishing Template',
+        webName: order.webName || 'Wishing Template',
         senderName: order.sender,
         receiverName: order.receiver,
         specialMessage: order.specialMsg ? order.specialMsg[0] : '',
@@ -671,12 +745,17 @@ app.get('/api/admin/orders', authenticateToken, adminOnly, async (req, res) => {
     const templatesCount = await WebSample.countDocuments({});
     const usersCount = await User.countDocuments({});
 
+    const pendingOrdersCount = allOrders.filter(
+      (o) => o.isLive === false || o.isLive === 'false' || (o.price > 0 && o.isLive !== true)
+    ).length;
+
     res.json({
       success: true,
       stats: {
         totalOrders: allOrders.length,
         tempOrdersCount: tempOrders.length,
         permOrdersCount: permOrders.length,
+        pendingOrdersCount,
         templatesCount,
         usersCount,
       },
@@ -710,7 +789,7 @@ app.get('/api/admin/users', authenticateToken, adminOnly, async (req, res) => {
 
     const users = await User.find(filter)
       .select('-passwordHash')
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
       .limit(limit)
       .lean();
@@ -865,18 +944,40 @@ app.delete('/api/admin/templates/:id', authenticateToken, adminOnly, async (req,
 
 app.post('/api/admin/orders/:id/approve', authenticateToken, adminOnly, async (req, res) => {
   try {
-    let order = await PurchasedWeb.findOne({ purchaseId: req.params.id });
+    const filter = mongoose.Types.ObjectId.isValid(req.params.id)
+      ? { $or: [{ purchaseId: req.params.id }, { _id: req.params.id }] }
+      : { purchaseId: req.params.id };
+
+    let order = await PurchasedWeb.findOne(filter);
     if (order) {
-      order.isLive = !order.isLive;
-      await order.save();
-      return res.json({ success: true, message: `Order live status updated to ${order.isLive}` });
+      const targetLiveState = !order.isLive;
+      const updatedOrder = await PurchasedWeb.findOneAndUpdate(
+        filter,
+        { $set: { isLive: targetLiveState, adminInteracted: true, adminInterected: true } },
+        { new: true }
+      );
+      return res.json({
+        success: true,
+        message: `Order live status updated to ${updatedOrder.isLive}`,
+        isLive: updatedOrder.isLive,
+        adminInteracted: updatedOrder.adminInteracted,
+      });
     }
 
-    let permOrder = await PermanentPurchasedWeb.findOne({ purchaseId: req.params.id });
+    let permOrder = await PermanentPurchasedWeb.findOne(filter);
     if (permOrder) {
-      permOrder.isLive = !permOrder.isLive;
-      await permOrder.save();
-      return res.json({ success: true, message: `Permanent order live status updated to ${permOrder.isLive}` });
+      const targetLiveState = !permOrder.isLive;
+      const updatedPermOrder = await PermanentPurchasedWeb.findOneAndUpdate(
+        filter,
+        { $set: { isLive: targetLiveState, adminInteracted: true, adminInterected: true } },
+        { new: true }
+      );
+      return res.json({
+        success: true,
+        message: `Permanent order live status updated to ${updatedPermOrder.isLive}`,
+        isLive: updatedPermOrder.isLive,
+        adminInteracted: updatedPermOrder.adminInteracted,
+      });
     }
 
     res.status(404).json({ success: false, message: 'Order not found.' });
@@ -887,11 +988,51 @@ app.post('/api/admin/orders/:id/approve', authenticateToken, adminOnly, async (r
 
 app.delete('/api/admin/orders/:id', authenticateToken, adminOnly, async (req, res) => {
   try {
-    let tempRes = await PurchasedWeb.findOneAndDelete({ purchaseId: req.params.id });
-    if (!tempRes) {
-      await PermanentPurchasedWeb.findOneAndDelete({ purchaseId: req.params.id });
+    const reason = String(req.query.reason || req.body?.reason || '').trim().toLowerCase();
+    const isFakePayment = reason === 'fake-payment' || reason === 'fake_payment';
+
+    const filter = mongoose.Types.ObjectId.isValid(req.params.id)
+      ? { $or: [{ purchaseId: req.params.id }, { _id: req.params.id }] }
+      : { purchaseId: req.params.id };
+
+    let toDelete = await PurchasedWeb.findOne(filter);
+    if (!toDelete) {
+      toDelete = await PermanentPurchasedWeb.findOne(filter);
     }
-    res.json({ success: true, message: 'Order deleted successfully.' });
+
+    if (!toDelete) {
+      return res.status(404).json({ success: false, message: 'Order not found.' });
+    }
+
+    if (isFakePayment && toDelete.author) {
+      const fakePaymentNote = 'Fake payment proof submitted. Request was rejected by admin.';
+      await User.updateOne(
+        { _id: toDelete.author },
+        {
+          $push: {
+            webCollection: {
+              purchasedId: toDelete._id,
+              webName: toDelete.webName || 'Wish Link Webpage',
+              receiver: toDelete.receiver || '',
+              price: toDelete.price || 0,
+              dateOfBuy: toDelete.date || new Date(),
+              isFakePaymentProof: true,
+              adminFakePaymentNote: fakePaymentNote,
+              adminActionAt: new Date(),
+              permanentLink: '',
+            },
+          },
+        }
+      );
+    }
+
+    await PurchasedWeb.findOneAndDelete(filter);
+    await PermanentPurchasedWeb.findOneAndDelete(filter);
+
+    res.json({
+      success: true,
+      message: isFakePayment ? 'Order rejected & marked as Fake Payment Proof.' : 'Order deleted successfully.',
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

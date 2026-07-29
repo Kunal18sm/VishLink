@@ -46,6 +46,42 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-});
+  webCollection: [
+    {
+      webName: String,
+      dateOfBuy: { type: Date, default: Date.now },
+      receiver: String,
+      price: { type: Number, default: 0 },
+      purchaseMode: {
+        type: String,
+        enum: ['upi', 'coins'],
+        default: 'upi',
+      },
+      paidCredits: {
+        type: Number,
+        default: 0,
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+      isFakePaymentProof: {
+        type: Boolean,
+        default: false,
+      },
+      adminFakePaymentNote: {
+        type: String,
+        default: '',
+      },
+      adminActionAt: Date,
+      permanentLink: String,
+      paymentProofUrl: mongoose.Schema.Types.Mixed,
+      purchasedId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'PurchasedWeb',
+      },
+    },
+  ],
+}, { strict: false });
 
 export const User = mongoose.models.User || mongoose.model('User', userSchema);

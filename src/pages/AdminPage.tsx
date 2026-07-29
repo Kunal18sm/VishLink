@@ -93,7 +93,28 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   const [userSearch, setUserSearch] = useState('');
   const [totalUsersCount, setTotalUsersCount] = useState(0);
 
+  // Selected Payment Proof Modal
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null);
+
+  const getProofImageUrl = (proof: any): string => {
+    if (!proof) return '';
+    if (typeof proof === 'string') return proof.trim();
+    if (typeof proof === 'object') {
+      if (proof.url && typeof proof.url === 'string') return proof.url.trim();
+      if (proof.secure_url && typeof proof.secure_url === 'string') return proof.secure_url.trim();
+    }
+    return '';
+  };
+
+  const isOrderPending = (o: any): boolean => {
+    if (!o) return false;
+    if (o.adminInteracted === false || o.adminInterected === false) return true;
+    if (o.isLive === false || o.isLive === 'false') return true;
+    if (o.status && (o.status.includes('Pending') || o.status.includes('Processing'))) return true;
+    if (o.paymentProofUrl && o.isLive !== true && o.isLive !== 'true') return true;
+    if ((o.price > 0 || o.totalPrice > 0) && o.isLive !== true && o.isLive !== 'true') return true;
+    return false;
+  };
 
   // New Template Form State
   const [newWebName, setNewWebName] = useState('');
@@ -203,7 +224,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setUsers((prev) => [...prev, ...(data.users || [])]);
+        setUsers((prev) => {
+          const existingIds = new Set(prev.map((u) => u._id || u.id));
+          const newUnique = (data.users || []).filter((u: any) => !existingIds.has(u._id || u.id));
+          return [...prev, ...newUnique];
+        });
         setUserPage(nextPage);
         setHasMoreUsers(data.hasMore || false);
       }
@@ -271,6 +296,31 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       }
     } catch (err: any) {
       alert(err.message || 'Failed to delete order');
+    }
+  };
+
+  const handleDeleteFakePayment = async (orderId: string) => {
+    if (
+      !window.confirm(
+        `Are you sure you want to REJECT & DELETE this order for FAKE PAYMENT PROOF?\nThis will remove the active request and log a Fake Payment rejection notice in user history.`
+      )
+    )
+      return;
+    const token = localStorage.getItem('vishlink_token');
+
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}?reason=fake-payment`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setAdminMsg('Order rejected & marked as Fake Payment Proof!');
+        fetchAdminData();
+        setTimeout(() => setAdminMsg(''), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to reject order');
     }
   };
 
@@ -454,13 +504,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   // Filtered Orders logic
   const filteredOrders = orders.filter((o) => {
     if (activeTab === 'orders-pending') {
-      return o.paymentProofUrl && !o.isLive;
+      return isOrderPending(o);
     }
     if (activeTab === 'orders-permanent') {
       return o.isTemporary === false || o.dbType === 'Permanent DB';
     }
     if (activeTab === 'orders-live') {
-      return o.isLive === true;
+      return o.isLive === true || o.isLive === 'true';
     }
     return true;
   });
@@ -539,6 +589,23 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
           >
             <LayoutDashboard className="w-4 h-4" />
             <span>Dashboard Overview</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('orders-pending')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
+              activeTab === 'orders-pending'
+                ? 'bg-amber-500 text-slate-950 font-extrabold shadow-md'
+                : 'bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500/20'
+            }`}
+          >
+            <Clock className="w-4 h-4 text-amber-400" />
+            <span>Link Requests ({orders.filter(isOrderPending).length})</span>
+            {orders.filter(isOrderPending).length > 0 && (
+              <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                {orders.filter(isOrderPending).length} NEW
+              </span>
+            )}
           </button>
 
           <button
@@ -650,6 +717,32 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Card 0: New Link Requests */}
+                <button
+                  onClick={() => setActiveTab('orders-pending')}
+                  className="group p-6 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all duration-200 shadow-xl cursor-pointer relative overflow-hidden"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                      ⏳
+                    </div>
+                    {orders.filter(isOrderPending).length > 0 && (
+                      <span className="bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-1 rounded-full animate-pulse shadow-md">
+                        {orders.filter(isOrderPending).length} PENDING
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-amber-300 transition-colors">
+                    New Link Requests
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Review new wishing links created by users that need admin approval.
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-amber-300">
+                    View Requests ({orders.filter(isOrderPending).length}) ➔
+                  </span>
+                </button>
+
                 {/* Card 1: Add Template */}
                 <button
                   onClick={() => setActiveTab('add-template')}
@@ -1238,7 +1331,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                     activeTab === 'orders-pending' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
                   }`}
                 >
-                  Pending Proofs ({orders.filter((o) => o.paymentProofUrl && !o.isLive).length})
+                  Pending Proofs ({orders.filter(isOrderPending).length})
                 </button>
 
                 <button
@@ -1312,9 +1405,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                         </td>
 
                         <td className="py-3.5 px-4">
-                          {o.paymentProofUrl ? (
+                          {getProofImageUrl(o.paymentProofUrl) ? (
                             <button
-                              onClick={() => setSelectedProofUrl(o.paymentProofUrl)}
+                              onClick={() => setSelectedProofUrl(getProofImageUrl(o.paymentProofUrl))}
                               className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px] hover:bg-indigo-500/30 transition cursor-pointer flex items-center gap-1"
                             >
                               <ImageIcon className="w-3.5 h-3.5" /> View Proof
@@ -1336,20 +1429,28 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4 text-right space-x-2">
+                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
                           <button
                             onClick={() => handleToggleLiveOrder(o.purchaseId || o._id)}
                             className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer"
                           >
-                            {o.isLive ? 'Disable' : 'Approve & Live'}
+                            {o.isLive ? 'Disable' : '✓ Accept & Live'}
                           </button>
 
                           <button
                             onClick={() => handleDeleteOrder(o.purchaseId || o._id)}
-                            className="p-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 transition cursor-pointer"
-                            title="Delete Order"
+                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-[11px] transition cursor-pointer"
+                            title="Delete Normal"
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            Delete
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteFakePayment(o.purchaseId || o._id)}
+                            className="px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold text-[11px] border border-red-500/30 transition cursor-pointer"
+                            title="Reject & Mark as Fake Payment Proof"
+                          >
+                            Fake Proof Delete
                           </button>
                         </td>
                       </tr>
@@ -1595,7 +1696,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-              <img src={selectedProofUrl} alt="Payment Proof" className="max-h-[70vh] mx-auto rounded-xl border border-slate-700" />
+              <img
+                src={getProofImageUrl(selectedProofUrl)}
+                alt="Payment Proof Screenshot"
+                className="max-h-[70vh] mx-auto rounded-xl border border-slate-700 object-contain shadow-2xl bg-black/40"
+              />
             </div>
           </div>
         )}

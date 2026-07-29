@@ -45,8 +45,8 @@ const purchasedWebSchema = new mongoose.Schema({
     },
   ],
   paymentProofUrl: {
-    url: String,
-    filename: String,
+    type: mongoose.Schema.Types.Mixed,
+    default: null,
   },
   specialMsg: [
     {
@@ -64,7 +64,15 @@ const purchasedWebSchema = new mongoose.Schema({
   },
   isLive: {
     type: Boolean,
-    default: true,
+    default: false,
+  },
+  adminInteracted: {
+    type: Boolean,
+    default: false,
+  },
+  adminInterected: {
+    type: Boolean,
+    default: false,
   },
   author: {
     type: mongoose.Schema.Types.ObjectId,
@@ -78,9 +86,14 @@ const purchasedWebSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
-});
+}, { strict: false });
 
 purchasedWebSchema.index({ purchaseId: 1 });
 purchasedWebSchema.index({ author: 1, date: -1 });
+purchasedWebSchema.index({ adminInteracted: 1, _id: -1 });
+purchasedWebSchema.index({ adminInterected: 1, _id: -1 });
+purchasedWebSchema.index({ isLive: 1, _id: -1 });
+purchasedWebSchema.index({ date: 1, isTemporary: 1 });
+purchasedWebSchema.index({ expiresAt: 1, isLive: 1 });
 
 export const PurchasedWeb = mongoose.models.PurchasedWeb || mongoose.model('PurchasedWeb', purchasedWebSchema);
