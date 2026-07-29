@@ -977,8 +977,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                   <div>
                     <div className="relative aspect-16/10 bg-slate-950 overflow-hidden group">
                       <img
-                        src={t.imageUrl?.url || t.image || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800'}
+                        src={
+                          (typeof t.imageUrl === 'string' ? t.imageUrl : t.imageUrl?.url || t.imageUrl?.secure_url || t.image) ||
+                          'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800'
+                        }
                         alt={t.webName || t.title}
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                       <div className="absolute top-2 right-2 flex gap-1">

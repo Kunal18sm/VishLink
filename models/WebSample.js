@@ -22,8 +22,8 @@ const webSampleSchema = new mongoose.Schema({
     default: 25,
   },
   imageUrl: {
-    url: String,
-    filename: String,
+    type: mongoose.Schema.Types.Mixed,
+    default: { url: 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800' },
   },
   webUrl: {
     type: String,

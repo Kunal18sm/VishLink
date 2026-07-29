@@ -359,7 +359,23 @@ app.get('/api/templates', async (req, res) => {
       if (!webUrl || webUrl.includes('localhost') || webUrl.includes('127.0.0.1')) {
         webUrl = 'https://all-sub-websites.onrender.com/wish';
       }
-      return { ...t, webUrl };
+
+      let imgUrlStr = '';
+      if (typeof t.imageUrl === 'string' && t.imageUrl.trim()) {
+        imgUrlStr = t.imageUrl.trim();
+      } else if (t.imageUrl && typeof t.imageUrl === 'object') {
+        imgUrlStr = t.imageUrl.url || t.imageUrl.secure_url || '';
+      }
+      if (!imgUrlStr && typeof t.image === 'string' && t.image.trim()) {
+        imgUrlStr = t.image.trim();
+      }
+
+      const imageUrlObj = {
+        url: imgUrlStr || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800',
+        filename: (t.imageUrl && typeof t.imageUrl === 'object' && t.imageUrl.filename) || '',
+      };
+
+      return { ...t, webUrl, imageUrl: imageUrlObj };
     });
     res.json({ success: true, templates: sanitizedTemplates });
   } catch (err) {
@@ -375,7 +391,23 @@ app.get('/api/templates/:id', async (req, res) => {
     if (!webUrl || webUrl.includes('localhost') || webUrl.includes('127.0.0.1')) {
       webUrl = 'https://all-sub-websites.onrender.com/wish';
     }
-    res.json({ success: true, template: { ...template, webUrl } });
+
+    let imgUrlStr = '';
+    if (typeof template.imageUrl === 'string' && template.imageUrl.trim()) {
+      imgUrlStr = template.imageUrl.trim();
+    } else if (template.imageUrl && typeof template.imageUrl === 'object') {
+      imgUrlStr = template.imageUrl.url || template.imageUrl.secure_url || '';
+    }
+    if (!imgUrlStr && typeof template.image === 'string' && template.image.trim()) {
+      imgUrlStr = template.image.trim();
+    }
+
+    const imageUrlObj = {
+      url: imgUrlStr || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800',
+      filename: (template.imageUrl && typeof template.imageUrl === 'object' && template.imageUrl.filename) || '',
+    };
+
+    res.json({ success: true, template: { ...template, webUrl, imageUrl: imageUrlObj } });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

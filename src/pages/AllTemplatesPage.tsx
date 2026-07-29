@@ -221,6 +221,10 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
                       referrerPolicy="no-referrer"
                       loading="lazy"
                       decoding="async"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                          'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
+                      }}
                       className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
                     />
 

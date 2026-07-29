@@ -72,6 +72,22 @@ export default function App() {
 
   const [wishlistCount] = useState<number>(3);
 
+  // Helper to extract image URL safely from template database object
+  const getTemplateImageUrl = (t: any): string => {
+    if (!t) return 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
+    if (typeof t.imageUrl === 'string' && t.imageUrl.trim()) return t.imageUrl.trim();
+    if (t.imageUrl && typeof t.imageUrl === 'object') {
+      if (t.imageUrl.url && typeof t.imageUrl.url === 'string' && t.imageUrl.url.trim()) {
+        return t.imageUrl.url.trim();
+      }
+      if (t.imageUrl.secure_url && typeof t.imageUrl.secure_url === 'string' && t.imageUrl.secure_url.trim()) {
+        return t.imageUrl.secure_url.trim();
+      }
+    }
+    if (typeof t.image === 'string' && t.image.trim()) return t.image.trim();
+    return 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
+  };
+
   // Fetch Live Templates from Backend MongoDB API (/api/templates)
   useEffect(() => {
     fetch('/api/templates')
@@ -83,7 +99,7 @@ export default function App() {
             title: t.webName || 'Wishing Template',
             price: typeof t.priceForTemporary === 'number' ? t.priceForTemporary : 0,
             originalPrice: typeof t.priceForPermanent === 'number' ? t.priceForPermanent : 399,
-            image: t.imageUrl?.url || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800',
+            image: getTemplateImageUrl(t),
             description: t.description || 'Custom interactive wishing webpage',
             occasions: t.tags && t.tags.length > 0 ? t.tags : ['birthday', 'all'],
             rating: 4.9,
