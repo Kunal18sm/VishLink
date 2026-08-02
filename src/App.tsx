@@ -75,6 +75,7 @@ export default function App() {
   // Helper to extract image URL safely from template database object
   const getTemplateImageUrl = (t: any): string => {
     if (!t) return 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
+    if (typeof t.image === 'string' && t.image.trim()) return t.image.trim();
     if (typeof t.imageUrl === 'string' && t.imageUrl.trim()) return t.imageUrl.trim();
     if (t.imageUrl && typeof t.imageUrl === 'object') {
       if (t.imageUrl.url && typeof t.imageUrl.url === 'string' && t.imageUrl.url.trim()) {
@@ -83,8 +84,10 @@ export default function App() {
       if (t.imageUrl.secure_url && typeof t.imageUrl.secure_url === 'string' && t.imageUrl.secure_url.trim()) {
         return t.imageUrl.secure_url.trim();
       }
+      if (t.imageUrl.path && typeof t.imageUrl.path === 'string' && t.imageUrl.path.trim()) {
+        return t.imageUrl.path.trim();
+      }
     }
-    if (typeof t.image === 'string' && t.image.trim()) return t.image.trim();
     return 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
   };
 

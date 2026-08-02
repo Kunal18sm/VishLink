@@ -353,7 +353,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
 
 app.get('/api/templates', async (req, res) => {
   try {
-    const templates = await WebSample.find({ isLive: true }).sort({ priority: -1, _id: -1 }).lean();
+    const templates = await WebSample.find({}).sort({ priority: -1, _id: -1 }).lean();
     const sanitizedTemplates = templates.map((t) => {
       let webUrl = t.webUrl || '';
       if (!webUrl || webUrl.includes('localhost') || webUrl.includes('127.0.0.1')) {
@@ -364,18 +364,24 @@ app.get('/api/templates', async (req, res) => {
       if (typeof t.imageUrl === 'string' && t.imageUrl.trim()) {
         imgUrlStr = t.imageUrl.trim();
       } else if (t.imageUrl && typeof t.imageUrl === 'object') {
-        imgUrlStr = t.imageUrl.url || t.imageUrl.secure_url || '';
+        imgUrlStr = t.imageUrl.url || t.imageUrl.secure_url || t.imageUrl.path || '';
       }
       if (!imgUrlStr && typeof t.image === 'string' && t.image.trim()) {
         imgUrlStr = t.image.trim();
       }
 
+      const finalImgUrl = imgUrlStr || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800';
       const imageUrlObj = {
-        url: imgUrlStr || 'https://images.unsplash.com/photo-1518199266791-5375a83190b7?auto=format&fit=crop&q=80&w=800',
+        url: finalImgUrl,
         filename: (t.imageUrl && typeof t.imageUrl === 'object' && t.imageUrl.filename) || '',
       };
 
-      return { ...t, webUrl, imageUrl: imageUrlObj };
+      return {
+        ...t,
+        webUrl,
+        imageUrl: imageUrlObj,
+        image: finalImgUrl,
+      };
     });
     res.json({ success: true, templates: sanitizedTemplates });
   } catch (err) {
