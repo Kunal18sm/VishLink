@@ -49,10 +49,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [editReceiverName, setEditReceiverName] = useState('');
   const [editSenderName, setEditSenderName] = useState('');
   const [editSpecialMessage, setEditSpecialMessage] = useState('');
-  const [editThemeColor, setEditThemeColor] = useState('Rose Pink');
-  const [editMusicTrack, setEditMusicTrack] = useState('Happy Birthday Remix');
   const [editLoading, setEditLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
+
 
 
   // Fetch real user & orders on mount
@@ -110,8 +109,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     setEditReceiverName(order.receiverName || order.receiver || '');
     setEditSenderName(order.senderName || order.sender || '');
     setEditSpecialMessage(order.specialMessage || order.specialMsg || '');
-    setEditThemeColor(order.themeColor || 'Rose Pink');
-    setEditMusicTrack(order.musicTrack || 'Happy Birthday LoFi Remix');
   };
 
   const handleSaveEditOrder = async (e: React.FormEvent) => {
@@ -133,10 +130,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           receiverName: editReceiverName.trim(),
           senderName: editSenderName.trim(),
           specialMessage: editSpecialMessage.trim(),
-          themeColor: editThemeColor,
-          musicTrack: editMusicTrack,
         }),
       });
+
 
       const data = await res.json();
       if (res.ok && data.success) {
@@ -506,43 +502,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    Theme Color
-                  </label>
-                  <select
-                    value={editThemeColor}
-                    onChange={(e) => setEditThemeColor(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
-                  >
-                    <option value="Rose Pink">Rose Pink</option>
-                    <option value="Satin Gold">Satin Gold</option>
-                    <option value="Royal Navy">Royal Navy</option>
-                    <option value="Neon Purple">Neon Purple</option>
-                    <option value="Emerald Green">Emerald Green</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-800 mb-1">
-                    Background Music Track
-                  </label>
-                  <select
-                    value={editMusicTrack}
-                    onChange={(e) => setEditMusicTrack(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
-                  >
-                    <option value="Happy Birthday LoFi Remix">Happy Birthday LoFi Remix</option>
-                    <option value="Romantic Acoustic Guitar">Romantic Acoustic Guitar</option>
-                    <option value="Celebration Party Beats">Celebration Party Beats</option>
-                    <option value="Gentle Piano Melody">Gentle Piano Melody</option>
-                    <option value="Uplifting Acoustic Vibe">Uplifting Acoustic Vibe</option>
-                  </select>
-                </div>
-              </div>
-
               <div className="flex items-center justify-end gap-2 pt-2">
+
+
                 <button
                   type="button"
                   onClick={() => setEditingOrder(null)}
