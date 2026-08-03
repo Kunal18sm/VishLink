@@ -4,6 +4,18 @@
   "description": "Create & share interactive 3D birthday cake cutting, background songs, photo memories, and secret love notes on custom web links!",
   "icons": [
     {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
       "src": "/icons/icon-192.svg",
       "type": "image/svg+xml",
       "sizes": "192x192",
@@ -14,18 +26,6 @@
       "type": "image/svg+xml",
       "sizes": "512x512",
       "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-maskable-192.svg",
-      "type": "image/svg+xml",
-      "sizes": "192x192",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icons/icon-maskable-512.svg",
-      "type": "image/svg+xml",
-      "sizes": "512x512",
-      "purpose": "maskable"
     }
   ],
   "start_url": "/",
@@ -41,14 +41,14 @@
       "short_name": "New Wish",
       "description": "Customize and create a new personalized wishing link",
       "url": "/?page=all-templates",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Track Wish Link",
       "short_name": "Track Link",
       "description": "Track your generated wish link status",
       "url": "/?page=profile",
-      "icons": [{ "src": "/icons/icon-192.svg", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

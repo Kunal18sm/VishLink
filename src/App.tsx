@@ -123,22 +123,44 @@ export default function App() {
       });
   }, []);
 
-  // Load User from JWT token on mount
+  // Load User from LocalStorage immediately to prevent unwanted logout on refresh
   useEffect(() => {
+    const cachedUser = localStorage.getItem('vishlink_user');
+    if (cachedUser) {
+      try {
+        setCurrentUser(JSON.parse(cachedUser));
+      } catch (e) {
+        console.warn('User cache parse error:', e);
+      }
+    }
+
     const token = localStorage.getItem('vishlink_token');
     if (token) {
       fetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
       })
-        .then((res) => res.json())
+        .then((res) => {
+          if (res.status === 401 || res.status === 403) {
+            // Token expired or invalid
+            localStorage.removeItem('vishlink_token');
+            localStorage.removeItem('vishlink_user');
+            setCurrentUser(null);
+            return null;
+          }
+          return res.json();
+        })
         .then((data) => {
-          if (data.success && data.user) {
+          if (data && data.success && data.user) {
             setCurrentUser(data.user);
+            localStorage.setItem('vishlink_user', JSON.stringify(data.user));
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.warn('Auth check network warning:', err);
+        });
     }
   }, []);
+
 
   // Page Switcher Helper
   const navigateToPage = (page: PageType) => {

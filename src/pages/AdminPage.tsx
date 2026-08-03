@@ -306,19 +306,56 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
     setPushLoading(true);
     setPushStatusMsg('');
     const token = localStorage.getItem('vishlink_token');
+
+    // Ensure Notification Permission is requested first
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        await handleSubscribeWebPush();
+      }
+    }
+
     try {
       const res = await fetch('/api/admin/notifications/test-push', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      setPushStatusMsg(data.message || (data.success ? 'Web Push sent!' : 'Push error'));
+
+      if (!res.ok && data.message && data.message.includes('No browser subscriptions found')) {
+        // Auto subscribe browser first
+        setPushStatusMsg('Subscribing browser first...');
+        await handleSubscribeWebPush();
+
+        // Retry test push
+        const retryRes = await fetch('/api/admin/notifications/test-push', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const retryData = await retryRes.json();
+        setPushStatusMsg(retryData.message || 'Web Push sent!');
+      } else {
+        setPushStatusMsg(data.message || (data.success ? 'Web Push sent!' : 'Push error'));
+      }
+
+      // Also trigger a local desktop notification chime for immediate visual feedback
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('🧪 VishLink Web Push Test Alert!', {
+            body: 'Web Push notification is active on this browser!',
+            icon: '/icons/icon-192.png',
+          });
+        } catch (nErr) {
+          console.warn('Local Notification notice:', nErr);
+        }
+      }
     } catch (err: any) {
       setPushStatusMsg(err.message || 'Network error');
     } finally {
       setPushLoading(false);
     }
   };
+
 
 
 

@@ -37,8 +37,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
 
       localStorage.setItem('vishlink_token', data.token);
+      localStorage.setItem('vishlink_user', JSON.stringify(data.user));
       onSuccess(data.user, data.token);
       onClose();
+
     } catch (err: any) {
       setErrorMsg(err.message || 'Google Sign In failed.');
     } finally {
@@ -113,8 +115,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
 
       localStorage.setItem('vishlink_token', data.token);
+      localStorage.setItem('vishlink_user', JSON.stringify(data.user));
       onSuccess(data.user, data.token);
       onClose();
+
     } catch (err: any) {
       setErrorMsg(err.message || 'Something went wrong');
     } finally {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Heart, User, ShoppingBag, ChevronDown, Sparkles, Bot, LogIn } from 'lucide-react';
+import { Search, Heart, User, ShoppingBag, ChevronDown, Sparkles, MessageSquare, LogIn } from 'lucide-react';
 
 interface NavbarProps {
   wishlistCount?: number;
@@ -108,14 +108,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             Explore Wish Templates
           </button>
 
-          {/* AI Support Bot Link */}
+          {/* AI Support Chat Link */}
           {onOpenAiChat && (
             <button
               onClick={onOpenAiChat}
               className="flex items-center gap-1.5 text-rose-600 hover:text-rose-700 transition-colors cursor-pointer bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200"
             >
-              <Bot className="w-3.5 h-3.5 text-[#e15b70]" />
-              <span>AI Bot</span>
+              <MessageSquare className="w-3.5 h-3.5 text-[#e15b70]" />
+              <span>AI Chat</span>
             </button>
           )}
         </nav>
@@ -150,18 +150,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden sm:inline">Install App</span>
             </button>
 
-            {/* AI Bot Mobile Button */}
+            {/* AI Chat Mobile Button */}
             {onOpenAiChat && (
               <button
                 onClick={onOpenAiChat}
-                title="AI Support Bot"
-                className="lg:hidden p-2 rounded-full text-[#e15b70] bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-colors"
+                title="AI Support Chat"
+                className="lg:hidden p-2 rounded-full text-[#e15b70] bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
               >
-                <Bot className="w-4 h-4" />
+                <MessageSquare className="w-4 h-4" />
               </button>
             )}
 
             {/* Auth / Profile Button */}
+
             {currentUser ? (
               onOpenProfile && (
                 <button
