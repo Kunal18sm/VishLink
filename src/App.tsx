@@ -12,6 +12,8 @@ import { InstagramBanner } from './components/InstagramBanner';
 import { Footer } from './components/Footer';
 import { AuthModal } from './components/AuthModal';
 import { SeoHead } from './components/SeoHead';
+import { PwaInstallPrompt } from './components/PwaInstallPrompt';
+
 
 // Pages
 import { CustomizePage } from './pages/CustomizePage';
@@ -322,6 +324,10 @@ export default function App() {
           setCurrentUser(user);
         }}
       />
+
+      {/* 6. PWA Custom Install Popup Banner */}
+      <PwaInstallPrompt />
     </div>
   );
 }
+

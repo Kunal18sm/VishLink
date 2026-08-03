@@ -32,7 +32,15 @@ import {
   AlertCircle,
   Star,
   Image as ImageIcon,
+  Bell,
+  Send,
+  Smartphone,
+  Volume2,
+  VolumeX,
+  ShoppingCart,
+  UserPlus,
 } from 'lucide-react';
+
 
 interface AdminPageProps {
   onBack: () => void;
@@ -60,6 +68,7 @@ const CATEGORY_OPTIONS = [
 export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState<
     | 'dashboard'
+    | 'notifications'
     | 'orders-all'
     | 'orders-pending'
     | 'orders-permanent'
@@ -73,6 +82,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
+  const [unreadNotifCount, setUnreadNotifCount] = useState<number>(0);
+  const [audioAlertEnabled, setAudioAlertEnabled] = useState<boolean>(true);
+  const [pushStatusMsg, setPushStatusMsg] = useState<string>('');
+  const [pushLoading, setPushLoading] = useState<boolean>(false);
+
   const [stats, setStats] = useState<any>({
     totalOrders: 0,
     tempOrdersCount: 0,
@@ -80,6 +95,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
     templatesCount: 0,
     usersCount: 0,
   });
+
 
   const [orders, setOrders] = useState<any[]>([]);
   const [templates, setTemplates] = useState<any[]>([]);
@@ -150,7 +166,161 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
     fetchTemplates();
     fetchInitialUsers();
     fetchFeedbacks();
+    fetchAdminNotifications();
+
+    // Poll for new Admin notifications every 10 seconds
+    const notifInterval = setInterval(() => {
+      fetchAdminNotifications(true);
+    }, 10000);
+
+    return () => clearInterval(notifInterval);
   }, []);
+
+  const fetchAdminNotifications = async (silent = false) => {
+    const token = localStorage.getItem('vishlink_token');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/admin/notifications', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Play notification chime if new unread notification arrives
+        if (silent && data.unreadCount > unreadNotifCount && audioAlertEnabled) {
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5 note
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+          } catch (audioErr) {
+            console.log('Audio playback notice:', audioErr);
+          }
+        }
+        setAdminNotifications(data.notifications || []);
+        setUnreadNotifCount(data.unreadCount || 0);
+      }
+    } catch (err) {
+      if (!silent) console.error('Fetch admin notifications error:', err);
+    }
+  };
+
+  const markNotificationsAsRead = async (notificationId?: string) => {
+    const token = localStorage.getItem('vishlink_token');
+    if (!token) return;
+    try {
+      const res = await fetch('/api/admin/notifications/mark-read', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ notificationId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        fetchAdminNotifications();
+      }
+    } catch (err) {
+      console.error('Mark notifications read error:', err);
+    }
+  };
+
+  // Convert VAPID base64 key to Uint8Array for PushManager
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  };
+
+  const handleSubscribeWebPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      alert('Web Push is not supported in this browser. Please use Chrome, Edge, Brave or Firefox.');
+      return;
+    }
+
+    setPushLoading(true);
+    setPushStatusMsg('');
+
+    try {
+      // 1. Request Browser Notification Permission
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        alert('Notification permission was denied. Please allow notifications in browser site settings.');
+        setPushStatusMsg('Permission denied.');
+        setPushLoading(false);
+        return;
+      }
+
+      // 2. Fetch VAPID Public Key from Server
+      const keyRes = await fetch('/api/admin/vapid-public-key');
+      const keyData = await keyRes.json();
+      if (!keyRes.ok || !keyData.publicKey) {
+        throw new Error('Failed to retrieve VAPID public key from server.');
+      }
+
+      // 3. Subscribe via Service Worker PushManager
+      const reg = await navigator.serviceWorker.ready;
+      const applicationServerKey = urlBase64ToUint8Array(keyData.publicKey);
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+
+      // 4. Send Subscription object to Backend MongoDB
+      const token = localStorage.getItem('vishlink_token');
+      const saveRes = await fetch('/api/admin/subscribe-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(sub),
+      });
+
+      const saveResult = await saveRes.json();
+      if (saveRes.ok && saveResult.success) {
+        setPushStatusMsg('✅ Browser Web Push Notifications Subscribed & Saved!');
+      } else {
+        alert(saveResult.message || 'Failed to save push subscription.');
+      }
+    } catch (err: any) {
+      console.error('Web push subscribe error:', err);
+      alert(`Push notice: ${err.message}`);
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleTestPush = async () => {
+    setPushLoading(true);
+    setPushStatusMsg('');
+    const token = localStorage.getItem('vishlink_token');
+    try {
+      const res = await fetch('/api/admin/notifications/test-push', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setPushStatusMsg(data.message || (data.success ? 'Web Push sent!' : 'Push error'));
+    } catch (err: any) {
+      setPushStatusMsg(err.message || 'Network error');
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -592,6 +762,27 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
           </button>
 
           <button
+            onClick={() => {
+              setActiveTab('notifications');
+              markNotificationsAsRead();
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 relative ${
+              activeTab === 'notifications'
+                ? 'bg-rose-500 text-white font-bold shadow-md'
+                : 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800'
+            }`}
+          >
+            <Bell className="w-4 h-4 text-rose-400" />
+            <span>Admin Alerts</span>
+            {unreadNotifCount > 0 && (
+              <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce">
+                {unreadNotifCount}
+              </span>
+            )}
+          </button>
+
+
+          <button
             onClick={() => setActiveTab('orders-pending')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
               activeTab === 'orders-pending'
@@ -669,8 +860,224 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
           </button>
         </div>
 
+        {/* ---------------- 0. ADMIN FREE NOTIFICATIONS CENTER VIEW ---------------- */}
+        {activeTab === 'notifications' && (
+          <div className="space-y-6 animate-in fade-in">
+            {/* Top Control & Integration Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Browser Web Push Subscription & Test Card */}
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 shadow-xl relative overflow-hidden">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                      <Bell className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                        VAPID Web Push
+                      </span>
+                      <h3 className="text-base font-bold text-white mt-1">Browser Push Notifications</h3>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleTestPush}
+                    disabled={pushLoading}
+                    className="bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>{pushLoading ? 'Sending...' : 'Test Web Push Alert'}</span>
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300 mt-3 leading-relaxed">
+                  Subscribe this browser to receive instant Web Push notifications whenever a new user registers or a template is sold!
+                </p>
+
+                {pushStatusMsg && (
+                  <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs font-semibold">
+                    {pushStatusMsg}
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    onClick={handleSubscribeWebPush}
+                    disabled={pushLoading}
+                    className="flex-1 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold py-2.5 px-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transition cursor-pointer"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Enable Browser Web Push</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Audio Alerts & Notification Controls Card */}
+              <div className="p-6 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 shadow-xl relative overflow-hidden">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                      <Volume2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-extrabold uppercase text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        In-App Sound &amp; Feed
+                      </span>
+                      <h3 className="text-base font-bold text-white mt-1">Audio Chime &amp; Logs</h3>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setAudioAlertEnabled(!audioAlertEnabled)}
+                    className={`p-2.5 rounded-xl border transition cursor-pointer ${
+                      audioAlertEnabled
+                        ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}
+                    title={audioAlertEnabled ? 'Disable Audio Chime' : 'Enable Audio Chime'}
+                  >
+                    {audioAlertEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300 mt-3 leading-relaxed">
+                  Real-time notification chime plays when a new signup or sale arrives. Auto-refreshes every 10 seconds.
+                </p>
+
+                <div className="mt-4 flex items-center gap-3">
+                  <button
+                    onClick={() => markNotificationsAsRead()}
+                    className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold py-2.5 px-4 rounded-xl border border-slate-700 transition cursor-pointer"
+                  >
+                    Mark All Notifications as Read
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Notification Activity Feed Header */}
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <h3 className="text-lg font-extrabold text-white flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-rose-400" />
+                  <span>Admin Activity Notifications Log</span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Live feed of user signups, template sales &amp; order activity. Auto-refreshes every 10 seconds.
+                </p>
+              </div>
+              <span className="text-xs text-slate-400 font-semibold bg-slate-900 px-3 py-1 rounded-full border border-slate-800">
+                Total Logs: {adminNotifications.length}
+              </span>
+            </div>
+
+            {/* Notifications Feed Items */}
+            {adminNotifications.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-slate-900/60 border border-slate-800 text-center">
+                <Bell className="w-12 h-12 text-slate-700 mx-auto mb-3 animate-pulse" />
+                <h4 className="text-base font-bold text-slate-300">No Admin Notifications Yet</h4>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  When a new user registers or a template is sold, notifications will appear here instantly and trigger Telegram alerts!
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {adminNotifications.map((notif) => {
+                  const isUserSignup = notif.type === 'NEW_USER_SIGNUP';
+                  const isSale = notif.type === 'TEMPLATE_SALE';
+                  return (
+                    <div
+                      key={notif._id || notif.id}
+                      className={`p-4 rounded-2xl border transition-all ${
+                        notif.read
+                          ? 'bg-slate-900/50 border-slate-800/80 text-slate-300'
+                          : 'bg-slate-900 border-rose-500/40 text-white shadow-lg shadow-rose-950/20'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                              isUserSignup
+                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                : isSale
+                                ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30'
+                                : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                            }`}
+                          >
+                            {isUserSignup ? (
+                              <UserPlus className="w-5 h-5" />
+                            ) : isSale ? (
+                              <ShoppingCart className="w-5 h-5" />
+                            ) : (
+                              <Bell className="w-5 h-5" />
+                            )}
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-bold text-sm text-white">{notif.title}</h4>
+                              {!notif.read && (
+                                <span className="bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                                  NEW
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-300 mt-0.5">{notif.message}</p>
+
+                            {/* Details Chips */}
+                            {notif.details && (
+                              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                                {notif.details.username && (
+                                  <span className="bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                                    👤 {notif.details.username}
+                                  </span>
+                                )}
+                                {notif.details.email && (
+                                  <span className="bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                                    📧 {notif.details.email}
+                                  </span>
+                                )}
+                                {notif.details.orderId && (
+                                  <span className="bg-slate-800 text-amber-300 px-2.5 py-0.5 rounded-lg border border-slate-700 font-mono">
+                                    🆔 {notif.details.orderId}
+                                  </span>
+                                )}
+                                {notif.details.price !== undefined && (
+                                  <span className="bg-emerald-500/10 text-emerald-300 px-2.5 py-0.5 rounded-lg border border-emerald-500/30 font-bold">
+                                    💵 ₹{notif.details.price}
+                                  </span>
+                                )}
+                                {notif.details.provider && (
+                                  <span className="bg-slate-800 text-slate-400 px-2.5 py-0.5 rounded-lg border border-slate-700">
+                                    🔐 {notif.details.provider}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="text-[11px] text-slate-500 block">
+                            {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-[10px] text-slate-600 block mt-0.5">
+                            {new Date(notif.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ---------------- 1. DASHBOARD HOME OVERVIEW VIEW ---------------- */}
         {activeTab === 'dashboard' && (
+
           <div className="space-y-8 animate-in fade-in">
             {/* Quick Metrics Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -717,11 +1124,46 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {/* Card 0: Admin Notification Service */}
+                <button
+                  onClick={() => {
+                    setActiveTab('notifications');
+                    markNotificationsAsRead();
+                  }}
+                  className="group p-6 rounded-2xl bg-gradient-to-br from-rose-950/40 via-slate-900 to-slate-900 hover:border-rose-500/60 border border-rose-500/30 text-left transition-all duration-200 shadow-xl cursor-pointer relative overflow-hidden"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-12 h-12 rounded-xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                      🔔
+                    </div>
+                    {unreadNotifCount > 0 ? (
+                      <span className="bg-rose-500 text-white text-xs font-black px-2.5 py-1 rounded-full animate-bounce shadow-md">
+                        {unreadNotifCount} NEW
+                      </span>
+                    ) : (
+                      <span className="bg-sky-500/20 text-sky-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-sky-500/30">
+                        Telegram Active
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-bold text-white text-base group-hover:text-rose-300 transition-colors">
+                    Admin Notifications
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Instant Telegram &amp; browser push alerts for user signups &amp; template sales.
+                  </p>
+                  <div className="mt-4 flex items-center gap-1 text-xs font-bold text-rose-400 group-hover:translate-x-1 transition-transform">
+                    <span>View Alerts Log</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </button>
+
                 {/* Card 0: New Link Requests */}
                 <button
                   onClick={() => setActiveTab('orders-pending')}
                   className="group p-6 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 hover:border-amber-400 text-left transition-all duration-200 shadow-xl cursor-pointer relative overflow-hidden"
                 >
+
                   <div className="flex items-center justify-between mb-4">
                     <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
                       ⏳

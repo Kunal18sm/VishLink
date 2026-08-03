@@ -14,6 +14,10 @@ import { WebSample } from './models/WebSample.js';
 import { PurchasedWeb } from './models/purchasedWeb.js';
 import { Chat } from './models/chat.js';
 import { generateReply } from './utils/geminiBot.js';
+import { AdminNotification } from './models/adminNotification.js';
+import { notifyAdmin, getVapidPublicKey, saveAdminPushSubscription, sendWebPushToAdmins } from './utils/adminNotifier.js';
+
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -117,7 +121,86 @@ const adminOnly = async (req, res, next) => {
   }
 };
 
+// ---------------- ADMIN NOTIFICATION API ROUTES ---------------- //
+
+// Fetch Admin Notifications
+app.get('/api/admin/notifications', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const notifications = await AdminNotification.find({})
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean();
+    
+    const unreadCount = await AdminNotification.countDocuments({ read: false });
+
+    res.json({
+      success: true,
+      unreadCount,
+      notifications,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Mark Notifications as Read
+app.put('/api/admin/notifications/mark-read', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const { notificationId } = req.body;
+    if (notificationId) {
+      await AdminNotification.findByIdAndUpdate(notificationId, { read: true });
+    } else {
+      await AdminNotification.updateMany({ read: false }, { read: true });
+    }
+    res.json({ success: true, message: 'Notifications marked as read' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Fetch VAPID Public Key for Web Push Subscription
+app.get('/api/admin/vapid-public-key', (req, res) => {
+  res.json({ success: true, publicKey: getVapidPublicKey() });
+});
+
+// Save Admin Web Push Subscription in DB
+app.post('/api/admin/subscribe-push', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const rawSubscription = req.body;
+    const userAgent = req.headers['user-agent'] || '';
+    await saveAdminPushSubscription(req.user.id, rawSubscription, userAgent);
+    res.json({ success: true, message: '✅ Admin Web Push subscription saved successfully!' });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Test Web Push Notification
+app.post('/api/admin/notifications/test-push', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const result = await sendWebPushToAdmins({
+      title: '🧪 VishLink Web Push Test Alert!',
+      message: `Hello Admin! Web Push notification system is working perfectly! (${new Date().toLocaleTimeString()})`,
+    });
+
+    if (result.sent > 0) {
+      res.json({ success: true, message: `✅ Web Push alert sent to ${result.sent} browser(s)!` });
+    } else if (result.total === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'No browser subscriptions found. Click "Enable Browser Web Push" in Admin Panel first!',
+      });
+    } else {
+      res.status(400).json({ success: false, message: 'Failed to deliver Web Push notification.' });
+    }
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
 // ---------------- AUTH ROUTES ---------------- //
+
 
 // Register
 app.post('/api/auth/register', async (req, res) => {
@@ -144,6 +227,20 @@ app.post('/api/auth/register', async (req, res) => {
       isAdmin: role === 'admin',
     });
     await newUser.save();
+
+    // Trigger Admin Notification for New User Signup
+    notifyAdmin({
+      type: 'NEW_USER_SIGNUP',
+      title: '🎉 New User Registered',
+      message: `User ${newUser.username} (${newUser.email}) joined VishLink!`,
+      details: {
+        userId: newUser._id,
+        username: newUser.username,
+        email: newUser.email,
+        provider: 'Email & Password',
+      },
+    }).catch((err) => console.error('Admin signup notify error:', err));
+
 
     const token = jwt.sign({ id: newUser._id, email: newUser.email, username: newUser.username, role: newUser.role }, JWT_SECRET, {
       expiresIn: '7d',
@@ -295,7 +392,21 @@ app.post('/api/auth/google', async (req, res) => {
         isAdmin,
       });
       await user.save();
+
+      // Trigger Admin Notification for New Google Signup
+      notifyAdmin({
+        type: 'NEW_USER_SIGNUP',
+        title: '🎉 New Google Signup',
+        message: `User ${user.username} (${user.email}) signed up via Google!`,
+        details: {
+          userId: user._id,
+          username: user.username,
+          email: user.email,
+          provider: 'Google One-Tap / OAuth',
+        },
+      }).catch((err) => console.error('Admin google signup notify error:', err));
     } else {
+
       if (avatarUrl && !user.avatarUrl) user.avatarUrl = avatarUrl;
       if (googleId && !user.googleId) user.googleId = googleId;
       if (isAdmin && user.role !== 'admin') {
@@ -565,6 +676,23 @@ app.post(
         newOrder = new PermanentPurchasedWeb(orderDataPayload);
         await newOrder.save();
       }
+
+      // Trigger Free Admin Notification for New Template Sale / Purchase
+      notifyAdmin({
+        type: 'TEMPLATE_SALE',
+        title: '🛒 Template Sold / Purchase Order Received',
+        message: `Template "${newOrder.webName}" bought for ₹${newOrder.price} by ${newOrder.sender}!`,
+        details: {
+          orderId: newOrder.purchaseId,
+          templateName: newOrder.webName,
+          price: newOrder.price,
+          sender: newOrder.sender,
+          receiver: newOrder.receiver,
+          isTemporary: isTemp,
+          buyerEmail: authorUser ? authorUser.email : 'Guest / Direct',
+        },
+      }).catch((err) => console.error('Admin template sale notify error:', err));
+
 
       if (authorUser) {
         try {

@@ -140,6 +140,16 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Install PWA App Button */}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('trigger-pwa-install'))}
+              title="Install VishLink App"
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-xs transition-all active:scale-95 cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Install App</span>
+            </button>
+
             {/* AI Bot Mobile Button */}
             {onOpenAiChat && (
               <button
