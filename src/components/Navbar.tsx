@@ -40,10 +40,13 @@ export const Navbar: React.FC<NavbarProps> = ({
           onClick={() => onNavigateToSection('hero')}
           className="flex items-center gap-2 cursor-pointer group text-left"
         >
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#e15b70] via-[#eb6b7f] to-[#f48a9b] flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 fill-white/20" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="VishLink Logo"
+            className="w-10 h-10 rounded-2xl shadow-md group-hover:scale-105 transition-transform object-cover border border-rose-200"
+          />
           <div>
+
             <span className="font-serif text-2xl font-bold tracking-tight text-slate-900 group-hover:text-[#e15b70] transition-colors">
               VishLink
             </span>

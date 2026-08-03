@@ -16,6 +16,9 @@ import {
   Crown,
   Heart,
   AlertCircle,
+  Edit3,
+  Save,
+  X,
 } from 'lucide-react';
 import { PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
@@ -40,6 +43,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [profileTab, setProfileTab] = useState<'active' | 'history'>('active');
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
+
+  // Edit Wish Link State
+  const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [editReceiverName, setEditReceiverName] = useState('');
+  const [editSenderName, setEditSenderName] = useState('');
+  const [editSpecialMessage, setEditSpecialMessage] = useState('');
+  const [editThemeColor, setEditThemeColor] = useState('Rose Pink');
+  const [editMusicTrack, setEditMusicTrack] = useState('Happy Birthday Remix');
+  const [editLoading, setEditLoading] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
+
 
   // Fetch real user & orders on mount
   useEffect(() => {
@@ -90,7 +104,58 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
     const text = `🎉 Hey ${order.receiverName}! I created a special wishing website just for you! 💖\n\nClick here to view your surprise: ${order.wishingUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };
+
+  const handleOpenEditModal = (order: any) => {
+    setEditingOrder(order);
+    setEditReceiverName(order.receiverName || order.receiver || '');
+    setEditSenderName(order.senderName || order.sender || '');
+    setEditSpecialMessage(order.specialMessage || order.specialMsg || '');
+    setEditThemeColor(order.themeColor || 'Rose Pink');
+    setEditMusicTrack(order.musicTrack || 'Happy Birthday LoFi Remix');
+  };
+
+  const handleSaveEditOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingOrder) return;
+
+    setEditLoading(true);
+    const token = localStorage.getItem('vishlink_token');
+
+    try {
+      const orderId = editingOrder.id || editingOrder.wishingSlug || editingOrder._id;
+      const res = await fetch(`/api/orders/${orderId}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          receiverName: editReceiverName.trim(),
+          senderName: editSenderName.trim(),
+          specialMessage: editSpecialMessage.trim(),
+          themeColor: editThemeColor,
+          musicTrack: editMusicTrack,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setProfileMsg('🎉 Wish Link details updated successfully in Database!');
+        setEditingOrder(null);
+        fetchProfileData();
+        setTimeout(() => setProfileMsg(''), 4000);
+      } else {
+        alert(data.message || 'Failed to update wish link details');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Network error updating wish link');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
   return (
+
     <div className="py-8 bg-slate-50 min-h-[85vh]">
       <div className="max-w-5xl mx-auto px-4 space-y-8">
         {/* Back & Logout Action Row */}
@@ -323,8 +388,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       >
                         <Share2 className="w-3.5 h-3.5" /> WhatsApp
                       </button>
+
+                      <button
+                        onClick={() => handleOpenEditModal(order)}
+                        className="flex-1 flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-[#e15b70] text-xs font-bold py-2 px-3 rounded-xl border border-rose-200 transition cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" /> Edit Details
+                      </button>
                     </div>
                   </div>
+
 
                   {/* Uploaded Images Gallery Strip if present */}
                   {order.uploadedImages && order.uploadedImages.length > 0 && (
@@ -349,11 +422,149 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
         })()}
         </div>
 
+        {/* Toast Alert Message */}
+        {profileMsg && (
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-bold flex items-center justify-between animate-in fade-in">
+            <span className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> {profileMsg}
+            </span>
+            <button onClick={() => setProfileMsg('')} className="text-slate-400 hover:text-slate-700">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* Instagram Social Banner */}
         <div className="mt-8">
           <InstagramBanner />
         </div>
       </div>
+
+      {/* Edit Wish Link Modal Popup */}
+      {editingOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl p-6 border border-slate-100 space-y-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <span className="text-[10px] font-bold text-[#e15b70] uppercase tracking-wider">
+                  Update Wish Link Details
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  Edit {(editingOrder as any).templateName || (editingOrder as any).webName || 'Wish Link'}
+                </h3>
+              </div>
+              <button
+                onClick={() => setEditingOrder(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditOrder} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    Recipient&apos;s Name (To) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editReceiverName}
+                    onChange={(e) => setEditReceiverName(e.target.value)}
+                    placeholder="Recipient's Name"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    Your Name (From) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editSenderName}
+                    onChange={(e) => setEditSenderName(e.target.value)}
+                    placeholder="Your Name"
+                    className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-800 mb-1">
+                  Personalized Wish Message *
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={editSpecialMessage}
+                  onChange={(e) => setEditSpecialMessage(e.target.value)}
+                  placeholder="Wish message..."
+                  className="w-full rounded-xl border border-slate-200 p-3 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    Theme Color
+                  </label>
+                  <select
+                    value={editThemeColor}
+                    onChange={(e) => setEditThemeColor(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
+                  >
+                    <option value="Rose Pink">Rose Pink</option>
+                    <option value="Satin Gold">Satin Gold</option>
+                    <option value="Royal Navy">Royal Navy</option>
+                    <option value="Neon Purple">Neon Purple</option>
+                    <option value="Emerald Green">Emerald Green</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 mb-1">
+                    Background Music Track
+                  </label>
+                  <select
+                    value={editMusicTrack}
+                    onChange={(e) => setEditMusicTrack(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold focus:border-[#e15b70] focus:ring-2 focus:ring-rose-100"
+                  >
+                    <option value="Happy Birthday LoFi Remix">Happy Birthday LoFi Remix</option>
+                    <option value="Romantic Acoustic Guitar">Romantic Acoustic Guitar</option>
+                    <option value="Celebration Party Beats">Celebration Party Beats</option>
+                    <option value="Gentle Piano Melody">Gentle Piano Melody</option>
+                    <option value="Uplifting Acoustic Vibe">Uplifting Acoustic Vibe</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingOrder(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#e15b70] to-[#c94358] hover:opacity-95 shadow-md transition disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{editLoading ? 'Saving...' : 'Save Changes'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+

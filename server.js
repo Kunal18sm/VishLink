@@ -818,6 +818,85 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
 });
 
 // Find Order by ID or Slug
+// Update Purchased Wish Link Details (User or Admin)
+app.put('/api/orders/:id/update', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { senderName, receiverName, specialMessage, themeColor, musicTrack } = req.body;
+
+    let order = await PurchasedWeb.findOne({
+      $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { purchaseId: id }],
+    });
+
+    if (!order) {
+      order = await PermanentPurchasedWeb.findOne({
+        $or: [{ _id: mongoose.Types.ObjectId.isValid(id) ? id : null }, { purchaseId: id }],
+      });
+    }
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Wish Link Order not found.' });
+    }
+
+    const adminEmails = ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'];
+    const isAdmin = req.user.role === 'admin' || adminEmails.includes((req.user.email || '').toLowerCase());
+    
+    if (order.author && order.author.toString() !== req.user.id && !isAdmin) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to edit this wish link.' });
+    }
+
+    if (senderName && senderName.trim()) order.sender = senderName.trim();
+    if (receiverName && receiverName.trim()) order.receiver = receiverName.trim();
+    if (specialMessage && specialMessage.trim()) order.specialMsg = [specialMessage.trim()];
+    if (themeColor && themeColor.trim()) order.themeColor = themeColor.trim();
+    if (musicTrack && musicTrack.trim()) order.musicTrack = musicTrack.trim();
+
+    await order.save();
+
+    if (req.user && req.user.id) {
+      try {
+        await User.updateOne(
+          { _id: req.user.id, 'webCollection.purchasedId': order._id },
+          {
+            $set: {
+              'webCollection.$.receiver': order.receiver,
+            },
+          }
+        );
+      } catch (uErr) {
+        console.log('webCollection update error:', uErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Wish Link details updated successfully in database!',
+      order: {
+        id: order.purchaseId || String(order._id),
+        wishingSlug: order.purchaseId || String(order._id),
+        wishingUrl: order.webUrl,
+        templateName: order.webName,
+        webName: order.webName,
+        senderName: order.sender,
+        receiverName: order.receiver,
+        specialMessage: order.specialMsg ? order.specialMsg[0] : '',
+        uploadedImages: (order.images || []).map((img) => (typeof img === 'string' ? img : img.url)),
+        themeColor: order.themeColor,
+        totalPrice: order.price,
+        purchaseDate: new Date(order.date || Date.now()).toLocaleDateString(),
+        status: order.isLive ? 'Active & Ready' : 'Processing',
+        musicTrack: order.musicTrack,
+        isTemporary: order.isTemporary,
+      },
+    });
+  } catch (err) {
+    console.error('Order update error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Find Order by ID or Slug
+
 app.get('/api/orders/find', async (req, res) => {
   try {
     const { query } = req.query;

@@ -14,7 +14,16 @@
     <link rel="canonical" href="https://vishlink.app/" />
     <meta name="theme-color" content="#e15b70" />
     
-    <!-- PWA Manifest & App Config -->
+    <!-- Early Global PWA Install Listener -->
+    <script>
+      window.deferredPwaPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredPwaPrompt = e;
+        console.log('⚡ Global PWA beforeinstallprompt captured!');
+      });
+    </script>
+
     <link rel="manifest" href="/manifest.json" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
