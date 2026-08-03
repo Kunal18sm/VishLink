@@ -31,6 +31,18 @@ interface ProfilePageProps {
   onOpenAdmin?: () => void;
 }
 
+// Helper to ensure order list has zero duplicates by ID or URL
+const dedupeOrders = (list: PurchasedOrder[]): PurchasedOrder[] => {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  return list.filter((item, idx) => {
+    const key = String(item.id || item.wishingUrl || item.wishingSlug || `order-${idx}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 export const ProfilePage: React.FC<ProfilePageProps> = ({
   purchasedOrders: initialOrders,
   onBack,
@@ -38,8 +50,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   onLogout,
   onOpenAdmin,
 }) => {
-  const [activeOrders, setActiveOrders] = useState<PurchasedOrder[]>(initialOrders);
-  const [historyOrders, setHistoryOrders] = useState<PurchasedOrder[]>(initialOrders);
+  const [activeOrders, setActiveOrders] = useState<PurchasedOrder[]>(() => dedupeOrders(initialOrders));
+  const [historyOrders, setHistoryOrders] = useState<PurchasedOrder[]>(() => dedupeOrders(initialOrders));
   const [profileTab, setProfileTab] = useState<'active' | 'history'>('active');
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
@@ -51,8 +63,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [editSpecialMessage, setEditSpecialMessage] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [profileMsg, setProfileMsg] = useState('');
-
-
 
   // Fetch real user & orders on mount
   useEffect(() => {
@@ -79,13 +89,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
       });
       const orderData = await orderRes.json();
       if (orderRes.ok && orderData.success) {
-        setActiveOrders(orderData.activeLinks || orderData.orders || []);
-        setHistoryOrders(orderData.historyLinks || orderData.orders || []);
+        const rawActive = orderData.activeLinks || orderData.orders || [];
+        const rawHistory = orderData.historyLinks || orderData.orders || [];
+        setActiveOrders(dedupeOrders(rawActive));
+        setHistoryOrders(dedupeOrders(rawHistory));
       }
     } catch (err) {
       console.log('Profile data fetch error:', err);
     }
   };
+
 
   const handleLogoutClick = () => {
     localStorage.removeItem('vishlink_token');
@@ -265,7 +278,8 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
 
           {(() => {
-            const filteredOrders = [...(profileTab === 'active' ? activeOrders : historyOrders)].sort((a: any, b: any) => {
+            const rawOrders = profileTab === 'active' ? activeOrders : historyOrders;
+            const filteredOrders = dedupeOrders(rawOrders).sort((a: any, b: any) => {
               const tA = Number(a.rawDate || new Date(a.purchaseDate || 0).getTime() || 0);
               const tB = Number(b.rawDate || new Date(b.purchaseDate || 0).getTime() || 0);
               return tB - tA;
@@ -289,11 +303,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredOrders.map((order) => (
+              {filteredOrders.map((order, idx) => (
                 <div
-                  key={order.id}
+                  key={`${profileTab}-${order.id || order.wishingUrl || idx}-${idx}`}
                   className="bg-slate-50/70 rounded-2xl border border-slate-200 p-5 space-y-4 hover:border-rose-200 transition-all"
                 >
+
                   {/* Top Bar: Date, Plan Badge, Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200/80 text-xs">
                     <div className="flex flex-wrap items-center gap-2">
@@ -301,13 +316,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                       <span className="text-slate-300">•</span>
                       <span
                         className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          order.isTemporary === false
+                          (order as any).isTemporary === false
                             ? 'bg-amber-100 text-amber-800 border border-amber-200'
                             : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
                         }`}
                       >
-                        {order.isTemporary === false ? '💎 Permanent (Lifetime)' : '⏳ Temporary (3 Months)'}
+                        {(order as any).isTemporary === false ? '💎 Permanent (Lifetime)' : '⏳ Temporary (3 Months)'}
                       </span>
+
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -385,14 +401,17 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                         <Share2 className="w-3.5 h-3.5" /> WhatsApp
                       </button>
 
-                      <button
-                        onClick={() => handleOpenEditModal(order)}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-[#e15b70] text-xs font-bold py-2 px-3 rounded-xl border border-rose-200 transition cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" /> Edit Details
-                      </button>
+                      {profileTab === 'active' && (
+                        <button
+                          onClick={() => handleOpenEditModal(order)}
+                          className="flex-1 flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-[#e15b70] text-xs font-bold py-2 px-3 rounded-xl border border-rose-200 transition cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit Details
+                        </button>
+                      )}
                     </div>
                   </div>
+
 
 
                   {/* Uploaded Images Gallery Strip if present */}

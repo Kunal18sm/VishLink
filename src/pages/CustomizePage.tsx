@@ -18,6 +18,8 @@ import {
   Heart,
 } from 'lucide-react';
 import { TemplateItem, PurchasedOrder } from '../types';
+import { InstagramBanner } from '../components/InstagramBanner';
+
 
 interface CustomizePageProps {
   template: TemplateItem & { imageNeeded?: number };
@@ -510,7 +512,13 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
             </form>
           </div>
         </div>
+
+        {/* Instagram Social Banner */}
+        <div className="mt-12">
+          <InstagramBanner />
+        </div>
       </div>
     </div>
   );
 };
+

@@ -794,24 +794,47 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
         isTemporary: true,
       }));
 
-    const combinedHistory = [...formattedHistoryOrders];
+    // Deduplicate formatted active links
+    const uniqueActiveOrders = [];
+    const activeSeen = new Set();
     formattedActiveOrders.forEach((ao) => {
+      const key = String(ao.id || ao.wishingUrl || ao.wishingSlug);
+      if (!activeSeen.has(key)) {
+        activeSeen.add(key);
+        uniqueActiveOrders.push(ao);
+      }
+    });
+
+    const combinedHistory = [...formattedHistoryOrders];
+    uniqueActiveOrders.forEach((ao) => {
       const exists = combinedHistory.some(
-        (ho) => ho.id === ao.id || (ho.wishingUrl && ho.wishingUrl === ao.wishingUrl)
+        (ho) => String(ho.id) === String(ao.id) || (ho.wishingUrl && ho.wishingUrl === ao.wishingUrl)
       );
       if (!exists) {
         combinedHistory.push(ao);
       }
     });
 
-    combinedHistory.sort((a, b) => b.rawDate - a.rawDate);
+    const uniqueHistoryOrders = [];
+    const historySeen = new Set();
+    combinedHistory.forEach((ho) => {
+      const key = String(ho.id || ho.wishingUrl || ho.wishingSlug);
+      if (!historySeen.has(key)) {
+        historySeen.add(key);
+        uniqueHistoryOrders.push(ho);
+      }
+    });
+
+    uniqueActiveOrders.sort((a, b) => b.rawDate - a.rawDate);
+    uniqueHistoryOrders.sort((a, b) => b.rawDate - a.rawDate);
 
     res.json({
       success: true,
-      orders: formattedActiveOrders,
-      activeLinks: formattedActiveOrders,
-      historyLinks: combinedHistory,
+      orders: uniqueActiveOrders,
+      activeLinks: uniqueActiveOrders,
+      historyLinks: uniqueHistoryOrders,
     });
+
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
