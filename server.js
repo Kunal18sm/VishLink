@@ -768,27 +768,36 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
     const permOrders = await PermanentPurchasedWeb.find({ author: req.user.id }).sort({ date: -1 }).lean();
     const currentUser = await User.findById(req.user.id).select('webCollection').lean();
 
-    const formatOrderDoc = (o) => ({
-      _id: String(o._id || ''),
-      id: o.purchaseId || String(o._id),
-      purchaseId: o.purchaseId || String(o._id),
-      wishingSlug: o.purchaseId || String(o._id),
-      wishingUrl: o.webUrl || '',
-      templateName: o.webName || 'Wishing Template',
-      webName: o.webName || 'Wishing Template',
-      senderName: o.sender || '',
-      receiverName: o.receiver || '',
-      specialMessage: o.specialMsg && o.specialMsg[0] ? o.specialMsg[0] : '',
-      uploadedImages: (o.images || []).map((img) => img.url),
-      themeColor: o.themeColor || 'Rose Pink',
-      totalPrice: Number(o.price) || 0,
-      rawDate: new Date(o.date || o.createdAt || Date.now()).getTime(),
-      purchaseDate: new Date(o.date || o.createdAt || Date.now()).toLocaleDateString(),
-      status: o.isLive ? 'Active & Ready' : 'Processing',
-      musicTrack: o.musicTrack || 'Happy Birthday Remix',
-      isTemporary: o.isTemporary !== false,
-      isFakePaymentProof: false,
-    });
+    const now = new Date();
+
+    const formatOrderDoc = (o) => {
+      const isExpired = o.expiresAt ? new Date(o.expiresAt) <= now : false;
+      const isLive = Boolean(o.isLive) && !isExpired;
+
+      return {
+        _id: String(o._id || ''),
+        id: o.purchaseId || String(o._id),
+        purchaseId: o.purchaseId || String(o._id),
+        wishingSlug: o.purchaseId || String(o._id),
+        wishingUrl: o.webUrl || '',
+        templateName: o.webName || 'Wishing Template',
+        webName: o.webName || 'Wishing Template',
+        senderName: o.sender || '',
+        receiverName: o.receiver || '',
+        specialMessage: o.specialMsg && o.specialMsg[0] ? o.specialMsg[0] : '',
+        uploadedImages: (o.images || []).map((img) => img.url),
+        themeColor: o.themeColor || 'Rose Pink',
+        totalPrice: Number(o.price) || 0,
+        rawDate: new Date(o.date || o.createdAt || Date.now()).getTime(),
+        purchaseDate: new Date(o.date || o.createdAt || Date.now()).toLocaleDateString(),
+        status: isExpired ? 'Expired' : isLive ? 'Active & Ready' : 'Processing',
+        isLive,
+        isExpired,
+        musicTrack: o.musicTrack || 'Happy Birthday Remix',
+        isTemporary: o.isTemporary !== false,
+        isFakePaymentProof: false,
+      };
+    };
 
     const dbOrdersList = [...tempOrders, ...permOrders].map(formatOrderDoc);
 
@@ -804,34 +813,43 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
         const pId = String(item.purchasedId || item._id || '');
         return pId && !dbPurchaseIds.has(pId);
       })
-      .map((item) => ({
-        _id: String(item.purchasedId || item._id || ''),
-        id: item.purchasedId ? String(item.purchasedId) : String(item._id),
-        purchaseId: item.purchasedId ? String(item.purchasedId) : String(item._id),
-        wishingSlug: item.purchasedId ? String(item.purchasedId) : String(item._id),
-        wishingUrl: item.permanentLink || '',
-        templateName: item.webName || 'Wish Link Webpage',
-        webName: item.webName || 'Wish Link Webpage',
-        senderName: '',
-        receiverName: item.receiver || '',
-        specialMessage: '',
-        uploadedImages: [],
-        totalPrice: Number(item.price) || 0,
-        rawDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).getTime(),
-        purchaseDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).toLocaleDateString(),
-        status: item.isFakePaymentProof ? 'Fake Payment Rejected' : item.permanentLink ? 'Active & Live' : 'Order Recorded',
-        isFakePaymentProof: Boolean(item.isFakePaymentProof),
-        adminFakePaymentNote: item.adminFakePaymentNote || '',
-        isTemporary: true,
-      }));
+      .map((item) => {
+        const isLive = Boolean(item.permanentLink) && !item.isFakePaymentProof;
+        return {
+          _id: String(item.purchasedId || item._id || ''),
+          id: item.purchasedId ? String(item.purchasedId) : String(item._id),
+          purchaseId: item.purchasedId ? String(item.purchasedId) : String(item._id),
+          wishingSlug: item.purchasedId ? String(item.purchasedId) : String(item._id),
+          wishingUrl: item.permanentLink || '',
+          templateName: item.webName || 'Wish Link Webpage',
+          webName: item.webName || 'Wish Link Webpage',
+          senderName: '',
+          receiverName: item.receiver || '',
+          specialMessage: '',
+          uploadedImages: [],
+          totalPrice: Number(item.price) || 0,
+          rawDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).getTime(),
+          purchaseDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).toLocaleDateString(),
+          status: item.isFakePaymentProof ? 'Fake Payment Rejected' : item.permanentLink ? 'Active & Live' : 'Order Recorded',
+          isLive,
+          isFakePaymentProof: Boolean(item.isFakePaymentProof),
+          adminFakePaymentNote: item.adminFakePaymentNote || '',
+          isTemporary: true,
+        };
+      });
 
-    const allCombined = [...dbOrdersList, ...legacyWebCollOrders].sort((a, b) => b.rawDate - a.rawDate);
+    const allHistoryCombined = [...dbOrdersList, ...legacyWebCollOrders].sort((a, b) => b.rawDate - a.rawDate);
+
+    // Active links MUST strictly be currently live, non-expired, and non-rejected links!
+    const activeLinksOnly = allHistoryCombined.filter(
+      (o) => Boolean(o.isLive) && !o.isFakePaymentProof && !o.isExpired && Boolean(o.wishingUrl)
+    );
 
     res.json({
       success: true,
-      orders: allCombined,
-      activeLinks: allCombined,
-      historyLinks: allCombined,
+      orders: activeLinksOnly,
+      activeLinks: activeLinksOnly,
+      historyLinks: allHistoryCombined,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
