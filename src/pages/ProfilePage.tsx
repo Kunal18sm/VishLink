@@ -31,16 +31,35 @@ interface ProfilePageProps {
   onOpenAdmin?: () => void;
 }
 
-// Helper to ensure order list has zero duplicates by ID or URL
+// Helper to ensure order list has zero duplicates by ID, Mongo _id, URL or Slug
 const dedupeOrders = (list: PurchasedOrder[]): PurchasedOrder[] => {
   if (!Array.isArray(list)) return [];
-  const seen = new Set<string>();
-  return list.filter((item, idx) => {
-    const key = String(item.id || item.wishingUrl || item.wishingSlug || `order-${idx}`);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const seenKeys = new Set<string>();
+  const result: PurchasedOrder[] = [];
+
+  for (const item of list) {
+    if (!item) continue;
+    const idKey = String(item.id || '').trim();
+    const mongoIdKey = String((item as any)._id || '').trim();
+    const urlKey = String(item.wishingUrl || '').trim();
+    const slugKey = String(item.wishingSlug || '').trim();
+
+    let isDuplicate = false;
+    if (idKey && seenKeys.has(`id:${idKey}`)) isDuplicate = true;
+    if (mongoIdKey && seenKeys.has(`id:${mongoIdKey}`)) isDuplicate = true;
+    if (urlKey && urlKey !== '' && seenKeys.has(`url:${urlKey}`)) isDuplicate = true;
+    if (slugKey && slugKey !== '' && seenKeys.has(`slug:${slugKey}`)) isDuplicate = true;
+
+    if (!isDuplicate) {
+      if (idKey) seenKeys.add(`id:${idKey}`);
+      if (mongoIdKey) seenKeys.add(`id:${mongoIdKey}`);
+      if (urlKey && urlKey !== '') seenKeys.add(`url:${urlKey}`);
+      if (slugKey && slugKey !== '') seenKeys.add(`slug:${slugKey}`);
+      result.push(item);
+    }
+  }
+
+  return result;
 };
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({

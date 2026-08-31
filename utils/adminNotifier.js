@@ -2,19 +2,15 @@ import webPush from 'web-push';
 import { AdminNotification } from '../models/adminNotification.js';
 import { AdminPushSubscription } from '../models/adminPushSubscription.js';
 
-let vapidKeys = {
-  publicKey: process.env.VAPID_PUBLIC_KEY || '',
-  privateKey: process.env.VAPID_PRIVATE_KEY || '',
-  subject: process.env.VAPID_SUBJECT || 'mailto:admin@vishlink.app',
-};
+const DEFAULT_VAPID_PUBLIC_KEY = 'BAZnvSkGFkLkwUQsZpfR7dIsRlhqoBgIuLne-bqW7xC7SDaLZUgqHtQg-pqCEIpdImL3czKePulR0TJfbVAIygc';
+const DEFAULT_VAPID_PRIVATE_KEY = 'zU3fduPRV5fi-dDrdlMiKrXfM0u7gK0Q-pUlg5dDn14';
+const DEFAULT_VAPID_SUBJECT = 'mailto:admin@wishlink.in';
 
-// Auto-generate VAPID keys if not present in env
-if (!vapidKeys.publicKey || !vapidKeys.privateKey) {
-  const generated = webPush.generateVAPIDKeys();
-  vapidKeys.publicKey = generated.publicKey;
-  vapidKeys.privateKey = generated.privateKey;
-  console.log('⚡ Auto-generated VAPID Keys for Web Push Notifications!');
-}
+let vapidKeys = {
+  publicKey: String(process.env.VAPID_PUBLIC_KEY || '').trim() || DEFAULT_VAPID_PUBLIC_KEY,
+  privateKey: String(process.env.VAPID_PRIVATE_KEY || '').trim() || DEFAULT_VAPID_PRIVATE_KEY,
+  subject: String(process.env.VAPID_SUBJECT || '').trim() || DEFAULT_VAPID_SUBJECT,
+};
 
 try {
   webPush.setVapidDetails(vapidKeys.subject, vapidKeys.publicKey, vapidKeys.privateKey);
@@ -90,7 +86,8 @@ export async function sendWebPushToAdmins(payload) {
                 auth: sub.keys.auth,
               },
             },
-            pushPayload
+            pushPayload,
+            { TTL: 60, urgency: 'high' }
           );
           sent += 1;
           await AdminPushSubscription.updateOne({ _id: sub._id }, { $set: { lastUsedAt: new Date() } });

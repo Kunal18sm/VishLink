@@ -70,7 +70,7 @@ permanentConn.on('error', (err) => {
 const PermanentPurchasedWeb = permanentConn.model(
   'purchasedWeb',
   PurchasedWeb.schema,
-  'purchasedWeb'
+  'permanentPurchasedWebs'
 );
 
 // Auth Middleware Helpers
@@ -677,8 +677,8 @@ app.post(
         author: authorUser ? authorUser._id : null,
         isTemporary: isTemp,
         isLive: isLiveStatus,
-        adminInteracted: isFreeLink ? true : false,
-        adminInterected: isFreeLink ? true : false,
+        adminInteracted: false,
+        adminInterected: false,
         expiresAt: isTemp ? new Date(Date.now() + 180 * 24 * 60 * 60 * 1000) : null,
       };
 
@@ -768,32 +768,46 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
     const permOrders = await PermanentPurchasedWeb.find({ author: req.user.id }).sort({ date: -1 }).lean();
     const currentUser = await User.findById(req.user.id).select('webCollection').lean();
 
-    const activeCombined = [...tempOrders, ...permOrders].sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    const formattedActiveOrders = activeCombined.map((o) => ({
+    const formatOrderDoc = (o) => ({
+      _id: String(o._id || ''),
       id: o.purchaseId || String(o._id),
+      purchaseId: o.purchaseId || String(o._id),
       wishingSlug: o.purchaseId || String(o._id),
-      wishingUrl: o.webUrl,
+      wishingUrl: o.webUrl || '',
       templateName: o.webName || 'Wishing Template',
       webName: o.webName || 'Wishing Template',
-      senderName: o.sender,
-      receiverName: o.receiver,
-      specialMessage: o.specialMsg ? o.specialMsg[0] : '',
+      senderName: o.sender || '',
+      receiverName: o.receiver || '',
+      specialMessage: o.specialMsg && o.specialMsg[0] ? o.specialMsg[0] : '',
       uploadedImages: (o.images || []).map((img) => img.url),
-      themeColor: o.themeColor,
-      totalPrice: o.price,
-      rawDate: new Date(o.date || Date.now()).getTime(),
-      purchaseDate: new Date(o.date || Date.now()).toLocaleDateString(),
+      themeColor: o.themeColor || 'Rose Pink',
+      totalPrice: Number(o.price) || 0,
+      rawDate: new Date(o.date || o.createdAt || Date.now()).getTime(),
+      purchaseDate: new Date(o.date || o.createdAt || Date.now()).toLocaleDateString(),
       status: o.isLive ? 'Active & Ready' : 'Processing',
-      musicTrack: o.musicTrack,
-      isTemporary: o.isTemporary,
+      musicTrack: o.musicTrack || 'Happy Birthday Remix',
+      isTemporary: o.isTemporary !== false,
       isFakePaymentProof: false,
-    })).sort((a, b) => b.rawDate - a.rawDate);
+    });
+
+    const dbOrdersList = [...tempOrders, ...permOrders].map(formatOrderDoc);
+
+    const dbPurchaseIds = new Set();
+    dbOrdersList.forEach((o) => {
+      if (o._id) dbPurchaseIds.add(o._id);
+      if (o.purchaseId) dbPurchaseIds.add(o.purchaseId);
+    });
 
     const webColl = Array.isArray(currentUser?.webCollection) ? currentUser.webCollection : [];
-    const formattedHistoryOrders = webColl
+    const legacyWebCollOrders = webColl
+      .filter((item) => {
+        const pId = String(item.purchasedId || item._id || '');
+        return pId && !dbPurchaseIds.has(pId);
+      })
       .map((item) => ({
+        _id: String(item.purchasedId || item._id || ''),
         id: item.purchasedId ? String(item.purchasedId) : String(item._id),
+        purchaseId: item.purchasedId ? String(item.purchasedId) : String(item._id),
         wishingSlug: item.purchasedId ? String(item.purchasedId) : String(item._id),
         wishingUrl: item.permanentLink || '',
         templateName: item.webName || 'Wish Link Webpage',
@@ -802,7 +816,7 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
         receiverName: item.receiver || '',
         specialMessage: '',
         uploadedImages: [],
-        totalPrice: item.price || 0,
+        totalPrice: Number(item.price) || 0,
         rawDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).getTime(),
         purchaseDate: new Date(item.dateOfBuy || item.adminActionAt || Date.now()).toLocaleDateString(),
         status: item.isFakePaymentProof ? 'Fake Payment Rejected' : item.permanentLink ? 'Active & Live' : 'Order Recorded',
@@ -811,47 +825,14 @@ app.get('/api/orders/my-orders', authenticateToken, async (req, res) => {
         isTemporary: true,
       }));
 
-    // Deduplicate formatted active links
-    const uniqueActiveOrders = [];
-    const activeSeen = new Set();
-    formattedActiveOrders.forEach((ao) => {
-      const key = String(ao.id || ao.wishingUrl || ao.wishingSlug);
-      if (!activeSeen.has(key)) {
-        activeSeen.add(key);
-        uniqueActiveOrders.push(ao);
-      }
-    });
-
-    const combinedHistory = [...formattedHistoryOrders];
-    uniqueActiveOrders.forEach((ao) => {
-      const exists = combinedHistory.some(
-        (ho) => String(ho.id) === String(ao.id) || (ho.wishingUrl && ho.wishingUrl === ao.wishingUrl)
-      );
-      if (!exists) {
-        combinedHistory.push(ao);
-      }
-    });
-
-    const uniqueHistoryOrders = [];
-    const historySeen = new Set();
-    combinedHistory.forEach((ho) => {
-      const key = String(ho.id || ho.wishingUrl || ho.wishingSlug);
-      if (!historySeen.has(key)) {
-        historySeen.add(key);
-        uniqueHistoryOrders.push(ho);
-      }
-    });
-
-    uniqueActiveOrders.sort((a, b) => b.rawDate - a.rawDate);
-    uniqueHistoryOrders.sort((a, b) => b.rawDate - a.rawDate);
+    const allCombined = [...dbOrdersList, ...legacyWebCollOrders].sort((a, b) => b.rawDate - a.rawDate);
 
     res.json({
       success: true,
-      orders: uniqueActiveOrders,
-      activeLinks: uniqueActiveOrders,
-      historyLinks: uniqueHistoryOrders,
+      orders: allCombined,
+      activeLinks: allCombined,
+      historyLinks: allCombined,
     });
-
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
