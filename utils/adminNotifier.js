@@ -63,14 +63,16 @@ export async function sendWebPushToAdmins(payload) {
       return { sent: 0, total: 0 };
     }
 
+    const targetUrl = payload.link || payload.url || '/requests/dashboard';
+
     const pushPayload = JSON.stringify({
       title: payload.title || 'VishLink Admin Alert 🔔',
       body: payload.message || payload.body || 'New activity recorded.',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
-      url: '/?page=admin',
+      icon: '/assets/icon-192.png',
+      badge: '/assets/icon-192.png',
+      url: targetUrl,
       data: {
-        url: '/?page=admin',
+        url: targetUrl,
       },
     });
 
@@ -117,17 +119,22 @@ export async function sendWebPushToAdmins(payload) {
 /**
  * Dispatch Admin Notification (Saves to DB + Sends Web Push to Admin Browsers)
  */
-export async function notifyAdmin({ type, title, message, details = {} }) {
+export async function notifyAdmin({ type, title, message, link, details = {} }) {
   console.log(`\n🔔 [ADMIN WEB NOTIFICATION - ${type}] ${title}: ${message}`);
+
+  const notifLink = link || '/requests/dashboard';
 
   // 1. Save to Database for Admin Activity Log
   let savedAlert = null;
   try {
     const notif = new AdminNotification({
-      type,
-      title,
-      message,
+      type: type || 'general',
+      title: title || 'Notification',
+      message: message || 'New activity recorded.',
+      link: notifLink,
       details,
+      read: false,
+      isRead: false,
     });
     savedAlert = await notif.save();
   } catch (err) {
@@ -135,7 +142,7 @@ export async function notifyAdmin({ type, title, message, details = {} }) {
   }
 
   // 2. Dispatch Web Push Notification to Admin Browsers
-  sendWebPushToAdmins({ title, message, type }).catch(() => {});
+  sendWebPushToAdmins({ title, message, type, link: notifLink }).catch(() => {});
 
   return savedAlert;
 }

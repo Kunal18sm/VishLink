@@ -680,9 +680,11 @@ app.post(
       // Trigger Free Admin Notification for New Template Sale / Purchase
       notifyAdmin({
         type: 'TEMPLATE_SALE',
-        title: '🛒 Template Sold / Purchase Order Received',
-        message: `Template "${newOrder.webName}" bought for ₹${newOrder.price} by ${newOrder.sender}!`,
+        title: isTemp ? '🛒 [NewVL] Temp Link Created' : '🛒 [NewVL] Perm Link Created',
+        message: `Template "${newOrder.webName}" created for ₹${newOrder.price} by ${newOrder.sender}!`,
+        link: isTemp ? '/requests' : '/requests/permanent',
         details: {
+          source: 'NewVL',
           orderId: newOrder.purchaseId,
           templateName: newOrder.webName,
           price: newOrder.price,

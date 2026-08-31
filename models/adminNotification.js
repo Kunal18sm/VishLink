@@ -4,8 +4,8 @@ const adminNotificationSchema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ['NEW_USER_SIGNUP', 'TEMPLATE_SALE', 'ADMIN_ALERT'],
       required: true,
+      default: 'general',
     },
     title: {
       type: String,
@@ -15,6 +15,10 @@ const adminNotificationSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    link: {
+      type: String,
+      default: '/requests/dashboard',
+    },
     details: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
@@ -23,8 +27,14 @@ const adminNotificationSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isRead: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
+
+adminNotificationSchema.index({ createdAt: -1 });
 
 export const AdminNotification = mongoose.model('AdminNotification', adminNotificationSchema);
