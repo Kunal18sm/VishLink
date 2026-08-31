@@ -641,7 +641,22 @@ app.post(
         generatedWishingUrl = `${baseWebUrl}/tulipParisBMW/${purchaseId}`;
       }
 
-      const costAmount = Number(totalPrice) || (isTemp ? (selectedWeb?.priceForTemporary || 199) : (selectedWeb?.priceForPermanent || 399));
+      let defaultTemplatePrice = isTemp ? 199 : 399;
+      if (selectedWeb) {
+        const rawPrice = isTemp ? selectedWeb.priceForTemporary : selectedWeb.priceForPermanent;
+        if (rawPrice !== undefined && rawPrice !== null && !Number.isNaN(Number(rawPrice))) {
+          defaultTemplatePrice = Math.max(0, Number(rawPrice));
+        }
+      }
+
+      let costAmount = defaultTemplatePrice;
+      if (totalPrice !== undefined && totalPrice !== null && String(totalPrice).trim() !== '') {
+        const parsedPrice = Number(totalPrice);
+        if (!Number.isNaN(parsedPrice)) {
+          costAmount = Math.max(0, parsedPrice);
+        }
+      }
+
       const isFreeLink = costAmount === 0;
       const isLiveStatus = isFreeLink; // Free links are auto live, paid links require Admin approval (isLive = false)
 
