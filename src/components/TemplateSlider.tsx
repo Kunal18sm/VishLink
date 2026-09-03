@@ -191,10 +191,11 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
                             e.stopPropagation();
                             handleOpenLivePreview(template);
                           }}
-                          className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:text-[#e15b70] hover:bg-rose-50 transition"
+                          className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl border border-slate-200 text-slate-600 hover:text-[#e15b70] hover:bg-rose-50 hover:border-rose-200 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer"
                           title="Open Live Preview Link"
                         >
                           <ExternalLink className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">Preview</span>
                         </button>
 
                         <button
@@ -202,7 +203,7 @@ export const TemplateSlider: React.FC<TemplateSliderProps> = ({
                             e.stopPropagation();
                             onOpenCustomizeModal(template);
                           }}
-                          className="inline-flex items-center gap-1 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-rose-200 hover:shadow-lg transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white text-xs font-bold px-3.5 py-2 rounded-xl shadow-md shadow-rose-200 hover:shadow-lg transition-all cursor-pointer whitespace-nowrap"
                         >
                           <Sparkles className="w-3 h-3" />
                           <span>Personalize</span>

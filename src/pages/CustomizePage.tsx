@@ -251,30 +251,34 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
               </div>
             </div>
 
-            {/* Price Details */}
-            <div className="bg-white p-4 rounded-2xl border border-rose-100 flex items-center justify-between text-xs">
-              <div>
-                <p className="font-semibold text-slate-700">Link Validity & Plan:</p>
-                <p className="text-slate-500 text-[11px]">
-                  {isTemporary ? 'Temporary (3 Months)' : 'Permanent (Lifetime Access)'}
-                </p>
-              </div>
-              <div className="text-right">
-                {totalPrice === 0 ? (
-                  <span className="text-xl font-extrabold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-200 inline-block">
-                    FREE
-                  </span>
-                ) : (
-                  <span className="text-xl font-extrabold text-[#e15b70]">
-                    ₹{totalPrice}
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Right Side: Form Inputs */}
           <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-3xl border border-rose-100/90 shadow-xl shadow-rose-900/5 hover:shadow-2xl transition-all duration-300 relative z-0">
+            {/* Highlighted Quick Instructions Banner */}
+            <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-rose-50 via-pink-50/60 to-rose-50 rounded-2xl border border-rose-200/90 shadow-2xs space-y-2.5">
+              <div className="flex items-center gap-2 text-[#e15b70]">
+                <Sparkles className="w-4 h-4 shrink-0 fill-[#e15b70]" />
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider">
+                  How to Create Your Wishing Link
+                </h3>
+              </div>
+              <ul className="text-xs text-slate-700 space-y-2 pl-0.5 leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="bg-[#e15b70] text-white text-[10px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">1</span>
+                  <span><strong>Preview Template:</strong> Tap <strong>"Live Demo Preview"</strong> on the image to view the live website demo before customizing.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-[#e15b70] text-white text-[10px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">2</span>
+                  <span><strong>Fill Required Details:</strong> Enter recipient & sender names, wish message, photos, and music.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="bg-[#e15b70] text-white text-[10px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">3</span>
+                  <span><strong>Generate Web Link:</strong> Click <strong>"Create Wish Link & Checkout"</strong> to generate your custom interactive website!</span>
+                </li>
+              </ul>
+            </div>
+
             <form onSubmit={handleSubmitOrder} className="space-y-6">
               {/* Section 1: Names */}
               <div>

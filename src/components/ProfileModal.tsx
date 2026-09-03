@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, ShoppingBag, Heart, CheckCircle2, Image as ImageIcon, Sparkles, Download, ArrowRight, Link as LinkIcon, Share2, Copy, Check, ExternalLink, Music } from 'lucide-react';
+import { X, ShoppingBag, Heart, CheckCircle2, Image as ImageIcon, Sparkles, Download, ArrowRight, Link as LinkIcon, Share2, Copy, Check, ExternalLink, Music, MessageSquare, Star, Send } from 'lucide-react';
 import { PurchasedOrder } from '../types';
 
 interface ProfileModalProps {
@@ -21,6 +21,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
   const [selectedOrderForPreview, setSelectedOrderForPreview] = useState<PurchasedOrder | null>(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [fbRating, setFbRating] = useState(5);
+  const [fbSuggestion, setFbSuggestion] = useState('');
+  const [fbSubmitting, setFbSubmitting] = useState(false);
+  const [fbSuccess, setFbSuccess] = useState(false);
 
   const handleCopyLink = (url: string, id: string) => {
     navigator.clipboard.writeText(url);
@@ -31,6 +36,40 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const handleWhatsAppShare = (order: PurchasedOrder) => {
     const text = `🎉 Hey ${order.receiverName}! I made a special personalized 3D wishing website just for you! 💖\n\nClick here to view your surprise: ${order.wishingUrl}`;
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fbSuggestion.trim()) return;
+
+    setFbSubmitting(true);
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'User',
+          email: '',
+          rating: fbRating,
+          suggestion: fbSuggestion.trim(),
+          feedbackmsg: fbSuggestion.trim(),
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFbSuccess(true);
+        setFbSuggestion('');
+        setTimeout(() => {
+          setFbSuccess(false);
+          setShowFeedbackModal(false);
+        }, 2200);
+      }
+    } catch (err) {
+      console.error('Feedback submit error:', err);
+    } finally {
+      setFbSubmitting(false);
+    }
   };
 
   return (
@@ -53,33 +92,27 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   KV
                 </div>
               </div>
-              <span className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 border-2 border-[#0d1222] rounded-full flex items-center justify-center text-white text-[10px]">
-                ✓
-              </span>
             </div>
 
-            <div className="flex-1">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+            <div className="flex-1 space-y-2">
+              <div>
                 <h2 className="font-serif text-2xl font-bold">Kunal Vishu</h2>
-                <span className="bg-rose-500/20 text-rose-300 text-[10px] font-semibold px-2.5 py-0.5 rounded-full border border-rose-500/30">
-                  VIP Wishing Creator
-                </span>
+                <p className="text-slate-300 text-xs mt-0.5">kunal.81789vishu@gmail.com</p>
               </div>
-              <p className="text-slate-300 text-xs mt-1">kunal.81789vishu@gmail.com • +91 98765 43210</p>
               
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-6 mt-4 text-xs">
-                <div>
-                  <span className="text-slate-400 block text-[10px]">Purchased Links</span>
-                  <span className="font-bold text-white text-base">{purchasedOrders.length} Links</span>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-1 text-xs">
+                <div className="bg-slate-800/80 px-3.5 py-1.5 rounded-xl border border-slate-700/60 inline-flex items-center gap-1.5">
+                  <span className="text-slate-400 text-[11px]">Purchased Links:</span>
+                  <span className="font-bold text-white text-xs">{purchasedOrders.length} Links</span>
                 </div>
-                <div className="border-l border-slate-700 pl-6">
-                  <span className="text-slate-400 block text-[10px]">Wish Club Rewards</span>
-                  <span className="font-bold text-amber-400 text-base">450 Points</span>
-                </div>
-                <div className="border-l border-slate-700 pl-6">
-                  <span className="text-slate-400 block text-[10px]">Member Since</span>
-                  <span className="font-bold text-white text-base">2026</span>
-                </div>
+
+                <button
+                  onClick={() => setShowFeedbackModal(true)}
+                  className="bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold px-3.5 py-1.5 rounded-xl border border-rose-500/30 transition-all cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Give Feedback</span>
+                </button>
               </div>
             </div>
           </div>
@@ -286,11 +319,102 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   Close Preview
                 </button>
               </div>
-
             </div>
           </div>
         )}
 
+        {/* Give Feedback Modal Popup */}
+        {showFeedbackModal && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-slate-900 text-white w-full max-w-md rounded-3xl p-6 border border-slate-800 shadow-2xl relative">
+              <button
+                onClick={() => setShowFeedbackModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 bg-rose-500/20 rounded-xl text-rose-400">
+                    <MessageSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg text-white">Give Your Feedback</h3>
+                    <p className="text-xs text-slate-400">Share your thoughts to help us improve VishLink</p>
+                  </div>
+                </div>
+
+                {fbSuccess ? (
+                  <div className="bg-emerald-950/60 border border-emerald-500/40 p-5 rounded-2xl text-center space-y-2 py-6">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                    <h4 className="font-bold text-white text-sm">Feedback Sent Successfully!</h4>
+                    <p className="text-xs text-emerald-200">Thank you so much for your feedback and support.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleFeedbackSubmit} className="space-y-4 text-xs">
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1.5">Your Rating</label>
+                      <div className="flex items-center gap-1.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            type="button"
+                            onClick={() => setFbRating(star)}
+                            className="p-1 transition transform hover:scale-110 cursor-pointer"
+                          >
+                            <Star
+                              className={`w-6 h-6 ${
+                                star <= fbRating ? 'text-amber-400 fill-amber-400' : 'text-slate-700'
+                              }`}
+                            />
+                          </button>
+                        ))}
+                        <span className="text-xs text-amber-300 font-bold ml-2">{fbRating}/5 Stars</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-slate-300 font-semibold mb-1.5">Feedback & Suggestions *</label>
+                      <textarea
+                        rows={4}
+                        required
+                        value={fbSuggestion}
+                        onChange={(e) => setFbSuggestion(e.target.value)}
+                        placeholder="Share your experience, suggest template ideas, or report any issues..."
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white placeholder-slate-500 focus:outline-hidden focus:border-[#e15b70]"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowFeedbackModal(false)}
+                        className="px-4 py-2.5 rounded-xl border border-slate-800 text-slate-400 hover:text-white text-xs font-semibold cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={fbSubmitting}
+                        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white font-extrabold px-5 py-2.5 rounded-xl shadow-md cursor-pointer transition disabled:opacity-50"
+                      >
+                        {fbSubmitting ? (
+                          <span>Submitting...</span>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>Submit Feedback</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

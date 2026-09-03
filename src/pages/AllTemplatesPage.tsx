@@ -279,16 +279,17 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenLivePreview(template);
                           }}
-                          className="p-2.5 rounded-2xl border border-slate-200 text-slate-600 hover:text-[#e15b70] hover:bg-rose-50 hover:border-rose-200 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl border border-slate-200 text-slate-600 hover:text-[#e15b70] hover:bg-rose-50 hover:border-rose-200 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer"
                           title="Open Live Preview Link"
                         >
-                          <ExternalLink className="h-4 w-4" />
+                          <ExternalLink className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          <span className="hidden sm:inline">Preview</span>
                         </button>
 
                         <button
@@ -296,7 +297,7 @@ export const AllTemplatesPage: React.FC<AllTemplatesPageProps> = ({
                             e.stopPropagation();
                             onOpenCustomizeModal(template);
                           }}
-                          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white text-xs font-bold px-4 py-2.5 rounded-2xl shadow-md shadow-rose-200 hover:shadow-lg transition-all cursor-pointer"
+                          className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:from-[#c94358] hover:to-[#be3b50] text-white text-xs font-bold px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl shadow-md shadow-rose-200 hover:shadow-lg transition-all cursor-pointer whitespace-nowrap"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
                           <span>Personalize</span>
