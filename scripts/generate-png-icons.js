@@ -19,8 +19,8 @@ async function generatePngs() {
     if (sharp) {
       const svgPath = path.join(iconsDir, 'icon-192.svg');
       if (fs.existsSync(svgPath)) {
-        await sharp(svgPath).png().toFile(path.join(iconsDir, 'icon-192.png'));
-        await sharp(path.join(iconsDir, 'icon-512.svg')).png().toFile(path.join(iconsDir, 'icon-512.png'));
+        await sharp(svgPath).resize(192, 192).png().toFile(path.join(iconsDir, 'icon-192.png'));
+        await sharp(path.join(iconsDir, 'icon-512.svg')).resize(512, 512).png().toFile(path.join(iconsDir, 'icon-512.png'));
         console.log('✅ Sharp converted SVG to PNG icons successfully!');
         return;
       }
