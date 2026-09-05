@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Mail, Lock, User, Sparkles, LogIn, UserPlus } from 'lucide-react';
+import { X, Mail, Lock, User, Sparkles, LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { LoadingOverlay } from './LoadingOverlay';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -248,7 +249,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3 text-sm font-bold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
           >
             {loading ? (
-              <span>Please wait...</span>
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{mode === 'login' ? 'Logging in...' : 'Creating Account...'}</span>
+              </>
             ) : mode === 'login' ? (
               <>
                 <LogIn className="h-4 w-4" /> Log In
@@ -279,6 +283,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
             Use Google One Tap Sign-In
           </button>
         </div>
+
+        {/* Full-screen Loading Overlay */}
+        <LoadingOverlay
+          isLoading={loading}
+          message={mode === 'login' ? 'Signing In to VishLink...' : 'Creating Your Account...'}
+          subMessage="Please wait a moment while we verify your details..."
+        />
       </div>
     </div>
   );

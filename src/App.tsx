@@ -123,7 +123,7 @@ export default function App() {
       });
   }, []);
 
-  // Load User from LocalStorage immediately to prevent unwanted logout on refresh
+  // Load User & Selected Template from LocalStorage immediately to prevent white screens on refresh
   useEffect(() => {
     const cachedUser = localStorage.getItem('vishlink_user');
     if (cachedUser) {
@@ -131,6 +131,15 @@ export default function App() {
         setCurrentUser(JSON.parse(cachedUser));
       } catch (e) {
         console.warn('User cache parse error:', e);
+      }
+    }
+
+    const cachedTemplate = localStorage.getItem('vishlink_selected_template');
+    if (cachedTemplate) {
+      try {
+        setSelectedTemplateForCustomize(JSON.parse(cachedTemplate));
+      } catch (e) {
+        console.warn('Template cache parse error:', e);
       }
     }
 
@@ -189,6 +198,11 @@ export default function App() {
 
   const handleOpenCustomize = (template: TemplateItem) => {
     setSelectedTemplateForCustomize(template);
+    try {
+      localStorage.setItem('vishlink_selected_template', JSON.stringify(template));
+    } catch (e) {
+      console.warn('Could not cache template:', e);
+    }
     navigateToPage('customize');
   };
 
@@ -281,13 +295,22 @@ export default function App() {
           />
         )}
 
-        {currentPage === 'customize' && selectedTemplateForCustomize && (
-          <CustomizePage
-            template={selectedTemplateForCustomize}
-            onBack={() => navigateToPage('home')}
-            onBuyNow={handleBuyNow}
-            onExploreFreeTemplates={() => handleSelectOccasion('free')}
-          />
+        {currentPage === 'customize' && (
+          selectedTemplateForCustomize ? (
+            <CustomizePage
+              template={selectedTemplateForCustomize}
+              onBack={() => navigateToPage('home')}
+              onBuyNow={handleBuyNow}
+              onExploreFreeTemplates={() => handleSelectOccasion('free')}
+            />
+          ) : (
+            <AllTemplatesPage
+              templates={templates}
+              initialCategory={selectedOccasion}
+              onBack={() => navigateToPage('home')}
+              onOpenCustomizeModal={handleOpenCustomize}
+            />
+          )
         )}
 
         {currentPage === 'profile' && (

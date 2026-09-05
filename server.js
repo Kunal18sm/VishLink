@@ -7,6 +7,9 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 import { v2 as cloudinary } from 'cloudinary';
 import { OAuth2Client } from 'google-auth-library';
 import { User } from './models/user.js';
@@ -16,6 +19,9 @@ import { Chat } from './models/chat.js';
 import { generateReply } from './utils/geminiBot.js';
 import { AdminNotification } from './models/adminNotification.js';
 import { notifyAdmin, getVapidPublicKey, saveAdminPushSubscription, sendWebPushToAdmins } from './utils/adminNotifier.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 
 
@@ -1402,6 +1408,25 @@ app.delete('/api/admin/feedback/:id', authenticateToken, adminOnly, async (req, 
     res.json({ success: true, message: 'Feedback deleted successfully.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Serve static assets from dist directory if available
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+}
+
+// Wildcard SPA route handler: redirect non-API GET requests to dist/index.html or home to avoid white screens
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ success: false, message: 'API route not found' });
+  }
+  const distIndexPath = path.join(__dirname, 'dist', 'index.html');
+  if (fs.existsSync(distIndexPath)) {
+    res.sendFile(distIndexPath);
+  } else {
+    res.redirect('/');
   }
 });
 

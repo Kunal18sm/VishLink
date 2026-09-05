@@ -16,9 +16,11 @@ import {
   Play,
   ExternalLink,
   Heart,
+  Loader2,
 } from 'lucide-react';
 import { TemplateItem, PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
+import { LoadingOverlay } from '../components/LoadingOverlay';
 
 
 interface CustomizePageProps {
@@ -458,7 +460,10 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-base font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
               >
                 {loading ? (
-                  <span>Generating Link...</span>
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span>Generating Wishing Webpage...</span>
+                  </>
                 ) : (
                   <>
                     <Sparkles className="h-4 w-4" /> Create Wish Link
@@ -489,6 +494,13 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
         <div className="mt-12">
           <InstagramBanner />
         </div>
+
+        {/* Full-screen Action Loading Overlay */}
+        <LoadingOverlay
+          isLoading={loading}
+          message="Generating Your Wishing Website..."
+          subMessage="Please wait a moment while we upload your memories & generate your custom interactive link..."
+        />
       </div>
     </div>
   );
