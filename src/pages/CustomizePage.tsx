@@ -255,40 +255,11 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
 
           {/* Right Side: Form Inputs */}
           <div className="lg:col-span-7 bg-white p-6 sm:p-8 rounded-3xl border border-rose-100/90 shadow-xl shadow-rose-900/5 hover:shadow-2xl transition-all duration-300 relative z-0">
-            {/* Highlighted Quick Instructions Banner */}
-            <div className="mb-6 p-4 sm:p-5 bg-gradient-to-r from-rose-50 via-pink-50/60 to-rose-50 rounded-2xl border border-rose-200/90 shadow-2xs space-y-2.5">
-              <div className="flex items-center gap-2 text-[#e15b70]">
-                <Sparkles className="w-4 h-4 shrink-0 fill-[#e15b70]" />
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider">
-                  How to Create Your Wishing Link
-                </h3>
-              </div>
-              <ul className="text-xs text-slate-700 space-y-2 pl-0.5 leading-relaxed">
-                <li className="flex items-start gap-2">
-                  <span className="bg-[#e15b70] text-white text-[10px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">1</span>
-                  <span><strong>Preview Template:</strong> Tap <strong>"Live Demo Preview"</strong> on the image to view the live website demo before customizing.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-[#e15b70] text-white text-[10px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">2</span>
-                  <span><strong>Fill Required Details:</strong> Enter recipient & sender names, wish message, photos, and music.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="bg-[#e15b70] text-white text-[10px] font-extrabold rounded-full w-4 h-4 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">3</span>
-                  <span><strong>Generate Web Link:</strong> Click <strong>"Create Wish Link & Checkout"</strong> to generate your custom interactive website!</span>
-                </li>
-              </ul>
-            </div>
-
-            <form onSubmit={handleSubmitOrder} className="space-y-6">
-              {/* Section 1: Names */}
+            <form onSubmit={handleSubmitOrder} className="space-y-5">
               <div>
-                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#e15b70]" />
-                  1. Recipient & Sender Information
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Recipient's Name (To) *
                     </label>
                     <input
@@ -297,11 +268,11 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       value={receiverName}
                       onChange={(e) => setReceiverName(e.target.value)}
                       placeholder="Enter recipient's name"
-                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#e15b70] focus:outline-hidden focus:ring-2 focus:ring-rose-100"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base focus:border-[#e15b70] focus:outline-hidden focus:ring-2 focus:ring-rose-100"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                       Your Name (From) *
                     </label>
                     <input
@@ -310,15 +281,14 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       value={senderName}
                       onChange={(e) => setSenderName(e.target.value)}
                       placeholder="Enter your name"
-                      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm focus:border-[#e15b70] focus:outline-hidden focus:ring-2 focus:ring-rose-100"
+                      className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base focus:border-[#e15b70] focus:outline-hidden focus:ring-2 focus:ring-rose-100"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Section 2: Special Message */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <label className="block text-sm font-semibold text-slate-700 mb-1.5">
                   Personalized Wish Message *
                 </label>
                 <textarea
@@ -327,17 +297,16 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                   value={specialMessage}
                   onChange={(e) => setSpecialMessage(e.target.value)}
                   placeholder="Write your emotional message for the surprise site..."
-                  className="w-full rounded-xl border border-slate-200 p-3.5 text-sm focus:border-[#e15b70] focus:outline-hidden focus:ring-2 focus:ring-rose-100"
+                  className="w-full rounded-xl border border-slate-200 p-4 text-base focus:border-[#e15b70] focus:outline-hidden focus:ring-2 focus:ring-rose-100"
                 />
               </div>
 
-              {/* Section 3: Photos Upload - ONLY IF requiredPhotosCount > 0 */}
               {requiredPhotosCount > 0 && (
                 <div>
-                  <h3 className="text-sm font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-[#e15b70]" />
-                    2. Upload Surprise Photos ({requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''} required *)
-                  </h3>
+                    Upload Surprise Photos ({requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''} required *)
+                  </label>
                   <div className="relative border-2 border-dashed border-rose-200 rounded-2xl bg-rose-50/50 p-6 text-center hover:bg-rose-50 transition">
                     <input
                       type="file"
@@ -347,10 +316,10 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       className="absolute inset-0 opacity-0 cursor-pointer z-10"
                     />
                     <Upload className="mx-auto h-8 w-8 text-[#e15b70] mb-2" />
-                    <p className="text-xs font-bold text-slate-800">
+                    <p className="text-sm font-bold text-slate-800">
                       Click or drag & drop {requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''}
                     </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-1">
                       Supports JPG, PNG, WebP (Uploaded directly to Cloudinary)
                     </p>
                   </div>
@@ -358,7 +327,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                   {/* Uploaded Photos Thumbnails rendered directly below Upload button */}
                   {filePreviews.length > 0 && (
                     <div className="mt-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2">
-                      <p className="text-xs font-bold text-slate-700">
+                      <p className="text-sm font-bold text-slate-700">
                         Uploaded Photos ({filePreviews.length}/{requiredPhotosCount}):
                       </p>
                       <div className="flex gap-2.5 overflow-x-auto pb-1">
@@ -384,12 +353,11 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 </div>
               )}
 
-              {/* Section 4: Validity & Payment Details */}
               <div className="space-y-4">
-                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <CreditCard className="w-4 h-4 text-[#e15b70]" />
-                  {requiredPhotosCount > 0 ? '3' : '2'}. Select Plan & Validity
-                </h3>
+                  Select Plan & Validity
+                </p>
 
                 {/* Validity Toggle */}
                 <div className="grid grid-cols-2 gap-3">
@@ -402,8 +370,8 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
-                    <p className="text-xs font-bold text-slate-900">Temporary Link</p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-sm font-bold text-slate-900">Temporary Link</p>
+                    <p className="text-xs text-slate-500 mt-1">
                       Valid for 3 Months ({template.price === 0 ? 'FREE' : `₹${template.price}`})
                     </p>
                   </button>
@@ -417,8 +385,8 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                         : 'border-slate-200 bg-white hover:border-slate-300'
                     }`}
                   >
-                    <p className="text-xs font-bold text-slate-900">Permanent Link</p>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-sm font-bold text-slate-900">Permanent Link</p>
+                    <p className="text-xs text-slate-500 mt-1">
                       Lifetime Access (₹{permanentPrice})
                     </p>
                   </button>
@@ -428,12 +396,12 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 {totalPrice > 0 ? (
                   <div className="rounded-2xl border border-rose-200 bg-slate-50/80 p-5 text-center space-y-4">
                     <div className="space-y-2">
-                      <p className="text-xs font-bold text-slate-900">
+                      <p className="text-sm font-bold text-slate-900">
                         Pay ₹{totalPrice} via UPI App or QR Code:
                       </p>
                       <a
                         href={`upi://pay?pa=yash.97184@ybl&pn=VishLink&am=${totalPrice}&cu=INR&tn=VishLink%20Purchase`}
-                        className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs sm:text-sm py-3.5 px-4 rounded-xl shadow-md transition cursor-pointer"
+                        className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm py-3.5 px-4 rounded-xl shadow-md transition cursor-pointer"
                       >
                         <CreditCard className="w-4.5 h-4.5" />
                         <span>Pay ₹{totalPrice} via UPI</span>
@@ -449,7 +417,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                     </div>
 
                     <div className="pt-2 text-left bg-white p-3.5 rounded-xl border border-slate-200">
-                      <label className="block text-xs font-bold text-slate-800 mb-1">
+                      <label className="block text-sm font-bold text-slate-800 mb-1.5">
                         Upload Payment Screenshot
                       </label>
                       <input
@@ -460,10 +428,10 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                             setPaymentProofFile(e.target.files[0]);
                           }
                         }}
-                        className="w-full text-xs text-slate-500 file:mr-2 file:rounded-xl file:border-0 file:bg-rose-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-[#e15b70]"
+                        className="w-full text-sm text-slate-500 file:mr-2 file:rounded-xl file:border-0 file:bg-rose-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[#e15b70]"
                       />
                       {paymentProofFile && (
-                        <p className="text-xs font-semibold text-emerald-600 mt-1.5">
+                        <p className="text-sm font-semibold text-emerald-600 mt-1.5">
                           ✓ Screenshot selected: {paymentProofFile.name}
                         </p>
                       )}
@@ -472,11 +440,11 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 ) : (
                   /* FREE TEMPLATE BANNER (NO PAYMENT DETAILS AT ALL!) */
                   <div className="p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl text-center">
-                    <p className="text-xs font-extrabold text-emerald-700 flex items-center justify-center gap-1.5">
+                    <p className="text-sm font-extrabold text-emerald-700 flex items-center justify-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-emerald-600" />
                       🎉 Free Template Selected! No Payment Required.
                     </p>
-                    <p className="text-[11px] text-emerald-600 mt-0.5">
+                    <p className="text-xs text-emerald-600 mt-1">
                       Your 3-Month Temporary Wish Link will be generated 100% free of cost instantly.
                     </p>
                   </div>
@@ -487,7 +455,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-sm font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-base font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
               >
                 {loading ? (
                   <span>Generating Link...</span>
@@ -525,4 +493,3 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
     </div>
   );
 };
-
