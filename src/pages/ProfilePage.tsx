@@ -300,15 +300,6 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <MessageSquare className="w-3.5 h-3.5" />
                   <span>Give Feedback</span>
                 </button>
-
-                {(userInfo?.role === 'admin' || userInfo?.isAdmin || ['kunal.81789vishu@gmail.com', 'yash.97184@ybl'].includes(userInfo?.email)) && (
-                  <button
-                    onClick={onOpenAdmin}
-                    className="bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-xl shadow-md cursor-pointer transition inline-flex items-center gap-1.5"
-                  >
-                    👑 Open Admin Control Panel
-                  </button>
-                )}
               </div>
             </div>
           </div>

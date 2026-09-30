@@ -25,7 +25,6 @@ import { FaqsPage } from './pages/FaqsPage';
 import { ValidityPage } from './pages/ValidityPage';
 import { AiChatPage } from './pages/AiChatPage';
 import { AllTemplatesPage } from './pages/AllTemplatesPage';
-import { AdminPage } from './pages/AdminPage';
 
 import { TEMPLATES } from './data/mockData';
 import { TemplateItem, PurchasedOrder } from './types';
@@ -40,8 +39,7 @@ export type PageType =
   | 'faqs'
   | 'validity'
   | 'ai-chat'
-  | 'all-templates'
-  | 'admin';
+  | 'all-templates';
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<PageType>('home');
@@ -320,12 +318,7 @@ export default function App() {
             onBack={() => navigateToPage('home')}
             onExploreTemplates={() => navigateToPage('all-templates')}
             onLogout={() => setCurrentUser(null)}
-            onOpenAdmin={() => navigateToPage('admin')}
           />
-        )}
-
-        {currentPage === 'admin' && (
-          <AdminPage onBack={() => navigateToPage('home')} />
         )}
 
         {currentPage === 'about' && (
