@@ -1365,14 +1365,14 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
       const userNameStr = req.user ? (req.user.username || req.user.email) : 'Guest Visitor';
       notifyAdmin({
         type: 'LIVE_CHAT_MESSAGE',
-        title: '💬 New Live Support Message',
+        title: 'New Live Support Message',
         message: `${userNameStr}: "${cleanUserText}"`,
         data: { chatId: userChat._id, userId: req.user ? req.user.id : null },
       });
 
       return res.json({
         success: true,
-        reply: 'Message sent to Live Admin Support. An agent will respond shortly! 💬',
+        reply: 'Your message has been sent to VishLink Admin Support. Replies typically arrive within 5–10 minutes, so feel free to check back or revisit.',
         chatMode: 'admin',
         messages: userChat.messages,
       });

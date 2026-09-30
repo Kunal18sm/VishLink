@@ -11,7 +11,7 @@ import {
   Zap,
   Headphones,
   CheckCheck,
-  UserCheck,
+  Clock,
 } from 'lucide-react';
 
 interface Message {
@@ -32,7 +32,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     {
       id: '1',
       senderRole: 'bot',
-      text: 'Namaste! Main VishLink AI Assistant hoon. VishLink templates, photo limits, link creation ya pricing ke bare me kuch bhi poochhein! 😊',
+      text: 'Namaste! I am your VishLink AI Assistant. Feel free to ask about templates, photo upload limits, link creation, or pricing!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'read',
     },
@@ -42,10 +42,10 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const sampleQuestions = [
-    'VishLink kya hai?',
-    'Maximum kitni images upload ho sakti hain?',
-    'Kaise customize karein?',
-    'Permanent vs Temporary link me kya farak hai?',
+    'What is VishLink?',
+    'How many photos can I upload?',
+    'How to customize templates?',
+    'Difference between permanent and temporary links?',
   ];
 
   const scrollToBottom = () => {
@@ -60,18 +60,20 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
 
       const res = await fetch('/api/chat/history', { headers });
       const data = await res.json();
-      if (res.ok && data.success && Array.isArray(data.messages) && data.messages.length > 0) {
-        const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
-          id: m._id || String(idx),
-          senderRole: m.senderRole || 'bot',
-          text: m.text || '',
-          timestamp: m.createdAt
-            ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: m.status || 'read',
-        }));
-        setMessages(formatted);
+      if (res.ok && data.success) {
         if (data.chatMode) setChatMode(data.chatMode);
+        if (Array.isArray(data.messages) && data.messages.length > 0) {
+          const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
+            id: m._id || String(idx),
+            senderRole: m.senderRole || 'bot',
+            text: m.text || '',
+            timestamp: m.createdAt
+              ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+              : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: m.status || 'read',
+          }));
+          setMessages(formatted);
+        }
       }
     } catch (e) {
       console.warn('Fetch chat history error:', e);
@@ -141,28 +143,20 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
           status: m.status || 'read',
         }));
         setMessages(formatted);
-      } else {
-        const replyRole = chatMode === 'admin' ? 'admin' : 'bot';
-        const replyMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          senderRole: replyRole,
-          text: data.reply || 'Message processed.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read',
-        };
-        setMessages((prev) => [...prev, replyMsg]);
       }
     } catch (err) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: (Date.now() + 1).toString(),
-          senderRole: 'bot',
-          text: 'Network issue or server busy. Please try again in a few seconds!',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'read',
-        },
-      ]);
+      if (chatMode === 'bot') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            senderRole: 'bot',
+            text: 'Network issue or server busy. Please try again in a few seconds!',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'read',
+          },
+        ]);
+      }
     } finally {
       setLoading(false);
     }
@@ -173,7 +167,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 flex flex-col min-h-[82vh]">
         
         {/* Top Navigation Header */}
-        <div className="bg-gradient-to-r from-[#0d1222] via-[#1a233d] to-[#2b172a] text-white p-4 sm:p-6 shadow-md space-y-4">
+        <div className="bg-gradient-to-r from-[#0d1222] via-[#1a233d] to-[#2b172a] text-white p-4 sm:p-5 shadow-md space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <button
@@ -188,21 +182,10 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
                 {chatMode === 'admin' ? <Headphones className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
               </div>
 
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-lg sm:text-xl font-bold font-serif text-white tracking-wide">
-                    {chatMode === 'admin' ? 'VishLink Live Admin Support' : 'VishLink AI Assistant'}
-                  </h1>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    {chatMode === 'admin' ? 'Live Agent Online' : 'Live AI Online'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300">
-                  {chatMode === 'admin'
-                    ? 'Direct human support with VishLink Admin & Helpdesk'
-                    : 'Instant 24/7 AI help for wishing website questions'}
-                </p>
+              <div>
+                <h1 className="text-lg sm:text-xl font-bold font-serif text-white tracking-wide">
+                  {chatMode === 'admin' ? 'VishLink Live Admin Support' : 'VishLink AI Assistant'}
+                </h1>
               </div>
             </div>
 
@@ -211,8 +194,11 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
                 setMessages([
                   {
                     id: Date.now().toString(),
-                    senderRole: 'bot',
-                    text: 'Chat history cleared. How can I help you today?',
+                    senderRole: chatMode === 'admin' ? 'admin' : 'bot',
+                    text:
+                      chatMode === 'admin'
+                        ? 'Chat history cleared. Send your message below and VishLink Admin Support will reply within 5–10 minutes.'
+                        : 'Chat history cleared. How can I help you today?',
                     timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
                     status: 'read',
                   },
@@ -231,34 +217,30 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
               onClick={() => setChatMode('bot')}
               className={`flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 chatMode === 'bot'
-                  ? 'bg-white text-slate-900 shadow-md scale-102'
+                  ? 'bg-white text-slate-900 shadow-md'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
               <Bot className="w-4 h-4 text-[#e15b70]" />
-              <span>🤖 AI Support Bot</span>
+              <span>AI Support Bot</span>
             </button>
 
             <button
               type="button"
               onClick={() => setChatMode('admin')}
-              className={`flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
+              className={`flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 chatMode === 'admin'
-                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md scale-102 font-extrabold'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md font-extrabold'
                   : 'text-slate-300 hover:text-white'
               }`}
             >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
               <Headphones className="w-4 h-4" />
-              <span>👨‍💻 Chat with Admin</span>
+              <span>Chat with Admin</span>
             </button>
           </div>
         </div>
 
-        {/* Quick Suggestion Chips (Shown in Bot mode) */}
+        {/* Quick Suggestion Chips (Only in Bot mode) */}
         {chatMode === 'bot' && (
           <div className="bg-rose-50/60 border-b border-rose-100 p-3 sm:p-4">
             <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
@@ -280,9 +262,11 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
 
         {/* Live Admin Mode Notice Banner */}
         {chatMode === 'admin' && (
-          <div className="bg-amber-50 border-b border-amber-200 p-3 text-center text-xs font-bold text-amber-800 flex items-center justify-center gap-2">
-            <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>You are now chatting directly with VishLink Admin Support. Messages sent here notify the admin team live!</span>
+          <div className="bg-amber-50 border-b border-amber-200 p-3.5 text-center text-xs font-medium text-amber-900 flex items-center justify-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              You are chatting with VishLink Admin Support. Messages notify our admin team live. Replies typically arrive within 5–10 minutes, so feel free to check back or revisit.
+            </span>
           </div>
         )}
 
@@ -328,7 +312,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
                 >
                   {isAdmin && (
                     <div className="text-[11px] font-bold text-amber-400 mb-1 flex items-center gap-1">
-                      👑 VishLink Admin Support
+                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400 inline" /> VishLink Admin Support
                     </div>
                   )}
 
@@ -387,7 +371,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
               onChange={(e) => setInputText(e.target.value)}
               placeholder={
                 chatMode === 'admin'
-                  ? 'Type a message to VishLink Admin Live Support...'
+                  ? 'Type a message to VishLink Admin Support...'
                   : 'Ask about templates, photo upload limits, or payment...'
               }
               className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs sm:text-sm focus:border-[#e15b70] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-rose-100"
@@ -413,4 +397,4 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       </div>
     </div>
   );
-};
+}
