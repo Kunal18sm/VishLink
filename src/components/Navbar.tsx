@@ -40,7 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-4">
         
-        {/* Brand Logo & Tagline */}
+        {/* Brand Logo */}
         <button
           onClick={() => onNavigateToSection('hero')}
           className="flex items-center gap-2.5 cursor-pointer group shrink-0"
@@ -48,20 +48,32 @@ export const Navbar: React.FC<NavbarProps> = ({
           <img
             src="/logo.png"
             alt="VishLink Logo"
-            className="w-11 h-11 rounded-2xl shadow-sm group-hover:scale-105 transition-transform object-cover border border-rose-200"
+            className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl shadow-sm group-hover:scale-105 transition-transform object-cover border border-rose-200"
           />
-          <div className="flex items-center gap-2">
-            <span className="font-serif text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 group-hover:text-[#e15b70] transition-colors whitespace-nowrap">
-              VishLink
-            </span>
-            <span className="hidden md:inline-flex items-center text-[10px] font-extrabold text-[#e15b70] bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200/80 whitespace-nowrap">
-              Personalized Wishing Links
-            </span>
-          </div>
+          <span className="font-serif text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 group-hover:text-[#e15b70] transition-colors whitespace-nowrap">
+            VishLink
+          </span>
         </button>
 
-        {/* Navigation Items (Home, Chat, Search, Install App, Profile) */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        {/* Center Search Bar */}
+        <form onSubmit={handleSearchSubmit} className="relative hidden sm:block flex-1 max-w-xs sm:max-w-sm md:max-w-md mx-2 sm:mx-6">
+          <input
+            type="text"
+            placeholder="Search templates..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200/90 rounded-full pl-4 pr-9 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#e15b70] focus:bg-white focus:ring-1 focus:ring-rose-200 transition-all"
+          />
+          <button
+            type="submit"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#e15b70] transition-colors cursor-pointer"
+          >
+            <Search className="w-3.5 h-3.5" />
+          </button>
+        </form>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-3 sm:gap-4 md:gap-5 shrink-0">
           
           {/* Home Link */}
           <button
@@ -82,23 +94,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span>Chat Support</span>
             </button>
           )}
-
-          {/* Search Bar */}
-          <form onSubmit={handleSearchSubmit} className="relative hidden sm:block w-44 md:w-56 lg:w-64">
-            <input
-              type="text"
-              placeholder="Search templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200/90 rounded-full pl-4 pr-9 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#e15b70] focus:bg-white focus:ring-1 focus:ring-rose-200 transition-all"
-            />
-            <button
-              type="submit"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#e15b70] transition-colors cursor-pointer"
-            >
-              <Search className="w-3.5 h-3.5" />
-            </button>
-          </form>
 
           {/* Install App Button */}
           {canInstall && (
