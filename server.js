@@ -129,9 +129,12 @@ const adminOnly = async (req, res, next) => {
 
 // ---------------- ADMIN NOTIFICATION API ROUTES ---------------- //
 
-// Fetch Admin Notifications
+// Fetch Admin Notifications (Automatically purges notifications older than 24h)
 app.get('/api/admin/notifications', authenticateToken, adminOnly, async (req, res) => {
   try {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await AdminNotification.deleteMany({ createdAt: { $lt: twentyFourHoursAgo } });
+
     const notifications = await AdminNotification.find({})
       .sort({ createdAt: -1 })
       .limit(100)

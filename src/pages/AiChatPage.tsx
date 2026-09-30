@@ -51,7 +51,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchChatHistory = async () => {
+  const fetchChatHistory = async (isInitial = false) => {
     try {
       const token = localStorage.getItem('vishlink_token');
       const headers: Record<string, string> = {};
@@ -60,7 +60,9 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       const res = await fetch('/api/chat/history', { headers });
       const data = await res.json();
       if (res.ok && data.success) {
-        if (data.chatMode) setChatMode(data.chatMode);
+        if (isInitial && data.chatMode) {
+          setChatMode(data.chatMode);
+        }
         if (Array.isArray(data.messages) && data.messages.length > 0) {
           const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
             id: m._id || String(idx),
@@ -79,20 +81,21 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     }
   };
 
-  // Initial fetch and polling for Live Admin responses
+  // Initial fetch and background polling for Live Admin responses
   useEffect(() => {
-    fetchChatHistory();
+    fetchChatHistory(true);
 
     const interval = setInterval(() => {
-      fetchChatHistory();
+      fetchChatHistory(false);
     }, 4000);
 
     return () => clearInterval(interval);
   }, []);
 
+  const messageCount = messages.length;
   useEffect(() => {
     scrollToBottom();
-  }, [messages, loading]);
+  }, [messageCount, loading]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputText;

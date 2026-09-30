@@ -35,6 +35,7 @@ const adminNotificationSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-adminNotificationSchema.index({ createdAt: -1 });
+// Auto-delete notifications from DB after 24 hours (86400 seconds)
+adminNotificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 86400 });
 
 export const AdminNotification = mongoose.model('AdminNotification', adminNotificationSchema);
