@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { TopBar } from './components/TopBar';
 import { Navbar } from './components/Navbar';
 import { Hero } from './components/Hero';
 import { ShopByOccasion } from './components/ShopByOccasion';
@@ -211,14 +210,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-slate-800 antialiased selection:bg-rose-100 selection:text-[#e15b70]">
-      {/* 1. Top Bar */}
-      <TopBar
-        onOpenHelp={() => navigateToPage('faqs')}
-        onOpenProfile={() => navigateToPage('profile')}
-        onOpenAiChat={() => navigateToPage('ai-chat')}
-      />
-
-      {/* 2. Main Navigation Bar */}
+      {/* Main Navigation Bar */}
       <Navbar
         wishlistCount={wishlistCount}
         onOpenProfile={() => navigateToPage('profile')}

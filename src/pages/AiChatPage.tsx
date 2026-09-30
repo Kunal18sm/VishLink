@@ -161,10 +161,24 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     }
   };
 
-  // In Admin mode, strictly filter out any AI Bot greetings or messages
-  const visibleMessages = chatMode === 'admin'
-    ? messages.filter((m) => m.senderRole !== 'bot')
-    : messages;
+  // Completely separate AI Bot Chat messages vs Live Admin Support Chat messages
+  // Also automatically filter out AI Bot messages older than 24 hours
+  const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+  const visibleMessages = messages.filter((m) => {
+    // 1. Auto-expire AI Bot messages older than 24h
+    if (m.senderRole === 'bot' && m.id && Number(m.id) && Number(m.id) < twentyFourHoursAgo) {
+      return false;
+    }
+
+    if (chatMode === 'admin') {
+      // Admin Mode: ONLY Admin replies and User messages (AI Bot messages are completely hidden)
+      return m.senderRole === 'admin' || m.senderRole === 'user';
+    } else {
+      // AI Bot Mode: ONLY AI Bot replies and User messages (Admin replies & admin messages are completely hidden)
+      return m.senderRole === 'bot' || m.senderRole === 'user';
+    }
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-[#0b0f19] text-slate-100 overflow-hidden h-[100dvh] w-full">
