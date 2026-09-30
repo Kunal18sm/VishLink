@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Heart, User, ShoppingBag, ChevronDown, Download, MessageSquare, LogIn } from 'lucide-react';
+import { Search, User, Download, MessageSquare, LogIn, Home } from 'lucide-react';
 
 interface NavbarProps {
   wishlistCount?: number;
@@ -13,17 +13,14 @@ interface NavbarProps {
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  wishlistCount,
   onOpenProfile,
   onOpenAiChat,
   onOpenAuth,
-  onSelectOccasion,
   onSearch,
   onNavigateToSection,
   currentUser,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [canInstall, setCanInstall] = useState(Boolean(window.deferredPwaPrompt));
 
   useEffect(() => {
@@ -40,105 +37,60 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-2xs">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
-        {/* Brand Logo */}
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+      <div className="max-w-7xl mx-auto px-4 py-2.5 sm:py-3 flex items-center justify-between gap-4">
+        
+        {/* Brand Logo & Tagline */}
         <button
           onClick={() => onNavigateToSection('hero')}
-          className="flex items-center gap-2 cursor-pointer group text-left"
+          className="flex items-center gap-2.5 cursor-pointer group shrink-0"
         >
           <img
             src="/logo.png"
             alt="VishLink Logo"
-            className="w-10 h-10 rounded-2xl shadow-md group-hover:scale-105 transition-transform object-cover border border-rose-200"
+            className="w-11 h-11 rounded-2xl shadow-sm group-hover:scale-105 transition-transform object-cover border border-rose-200"
           />
-          <div>
-
-            <span className="font-serif text-2xl font-bold tracking-tight text-slate-900 group-hover:text-[#e15b70] transition-colors">
+          <div className="flex items-center gap-2">
+            <span className="font-serif text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900 group-hover:text-[#e15b70] transition-colors whitespace-nowrap">
               VishLink
             </span>
-            <span className="hidden sm:inline-block ml-2 text-[10px] font-bold text-[#e15b70] bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100">
+            <span className="hidden md:inline-flex items-center text-[10px] font-extrabold text-[#e15b70] bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200/80 whitespace-nowrap">
               Personalized Wishing Links
             </span>
           </div>
         </button>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden lg:flex items-center gap-6 text-xs font-bold text-slate-700">
+        {/* Navigation Items (Home, Chat, Search, Install App, Profile) */}
+        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+          
+          {/* Home Link */}
           <button
             onClick={() => onNavigateToSection('hero')}
-            className="hover:text-[#e15b70] transition-colors cursor-pointer"
+            className="hidden md:inline-flex items-center gap-1.5 text-xs font-bold text-slate-700 hover:text-[#e15b70] transition-colors whitespace-nowrap cursor-pointer px-2 py-1"
           >
-            Home
+            <Home className="w-3.5 h-3.5 text-slate-500" />
+            <span>Home</span>
           </button>
 
-          {/* Occasions Dropdown */}
-          <div
-            className="relative group"
-            onMouseEnter={() => setActiveDropdown('occasions')}
-            onMouseLeave={() => setActiveDropdown(null)}
-          >
-            <button
-              onClick={() => onNavigateToSection('occasions')}
-              className="flex items-center gap-1 hover:text-[#e15b70] transition-colors py-1 cursor-pointer"
-            >
-              <span>Wish Categories</span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#e15b70]" />
-            </button>
-            {activeDropdown === 'occasions' && (
-              <div className="absolute top-full left-0 w-52 bg-white border border-slate-100 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-1">
-                {[
-                  'Birthday 3D Cake',
-                  'Anniversary Love Story',
-                  'Valentine Proposal',
-                  'Best Friends Roast',
-                  'Festive Greetings',
-                  'Sorry & Reconnect',
-                ].map((occ) => (
-                  <button
-                    key={occ}
-                    onClick={() => {
-                      onSelectOccasion(occ);
-                      onNavigateToSection('templates');
-                      setActiveDropdown(null);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-[#e15b70] transition-colors cursor-pointer"
-                  >
-                    {occ}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <button
-            onClick={() => onNavigateToSection('templates')}
-            className="hover:text-[#e15b70] transition-colors cursor-pointer"
-          >
-            Explore Wish Templates
-          </button>
-
-          {/* AI Support Chat Link */}
+          {/* Chat Support Link */}
           {onOpenAiChat && (
             <button
               onClick={onOpenAiChat}
-              className="flex items-center gap-1.5 text-rose-600 hover:text-rose-700 transition-colors cursor-pointer bg-rose-50 px-2.5 py-1 rounded-full border border-rose-200"
+              className="inline-flex items-center gap-1.5 text-xs font-extrabold text-[#e15b70] bg-rose-50 hover:bg-rose-100 transition-colors cursor-pointer px-3 py-1.5 rounded-full border border-rose-200/80 whitespace-nowrap"
             >
               <MessageSquare className="w-3.5 h-3.5 text-[#e15b70]" />
-              <span>AI Chat</span>
+              <span>Chat Support</span>
             </button>
           )}
-        </nav>
 
-        {/* Search & Actions */}
-        <div className="flex items-center gap-3">
-          <form onSubmit={handleSearchSubmit} className="relative hidden sm:block w-44 md:w-56">
+          {/* Search Bar */}
+          <form onSubmit={handleSearchSubmit} className="relative hidden sm:block w-44 md:w-56 lg:w-64">
             <input
               type="text"
-              placeholder="Search cake, song wish..."
+              placeholder="Search templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 rounded-full pl-4 pr-9 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#e15b70] focus:ring-1 focus:ring-[#e15b70] transition-all"
+              className="w-full bg-slate-50 border border-slate-200/90 rounded-full pl-4 pr-9 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-[#e15b70] focus:bg-white focus:ring-1 focus:ring-rose-200 transition-all"
             />
             <button
               type="submit"
@@ -148,54 +100,41 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </form>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            {/* Install PWA App Button */}
-            {canInstall && <button
+          {/* Install App Button */}
+          {canInstall && (
+            <button
               onClick={() => window.dispatchEvent(new CustomEvent('trigger-pwa-install'))}
               title="Install VishLink App"
-              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-xs transition-all active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-xs transition-all active:scale-95 whitespace-nowrap cursor-pointer"
             >
-                <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Install App</span>
-            </button>}
+              <Download className="w-3.5 h-3.5" />
+              <span>Install App</span>
+            </button>
+          )}
 
-            {/* AI Chat Mobile Button */}
-            {onOpenAiChat && (
+          {/* Profile / Auth Button */}
+          {currentUser ? (
+            onOpenProfile && (
               <button
-                onClick={onOpenAiChat}
-                title="AI Support Chat"
-                className="lg:hidden p-2 rounded-full text-[#e15b70] bg-rose-50 border border-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+                onClick={onOpenProfile}
+                title="My Profile & Links"
+                className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-1.5 sm:py-2 rounded-full shadow-xs transition-colors whitespace-nowrap cursor-pointer"
               >
-                <MessageSquare className="w-4 h-4" />
+                <User className="w-3.5 h-3.5 text-rose-400" />
+                <span className="hidden sm:inline">{currentUser.username || 'Profile'}</span>
               </button>
-            )}
-
-            {/* Auth / Profile Button */}
-
-            {currentUser ? (
-              onOpenProfile && (
-                <button
-                  onClick={onOpenProfile}
-                  title="My Profile & Links"
-                  className="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs transition-colors cursor-pointer"
-                >
-                  <User className="w-4 h-4 text-rose-400" />
-                  <span className="hidden sm:inline">{currentUser.username || 'Profile'}</span>
-                </button>
-              )
-            ) : (
-              onOpenAuth && (
-                <button
-                  onClick={onOpenAuth}
-                  className="inline-flex items-center gap-1.5 bg-[#e15b70] hover:bg-[#c94358] text-white text-xs font-bold px-3.5 py-2 rounded-full shadow-xs transition-colors cursor-pointer"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Login</span>
-                </button>
-              )
-            )}
-          </div>
+            )
+          ) : (
+            onOpenAuth && (
+              <button
+                onClick={onOpenAuth}
+                className="inline-flex items-center gap-1.5 bg-[#e15b70] hover:bg-[#c94358] text-white text-xs font-extrabold px-3.5 py-1.5 sm:py-2 rounded-full shadow-xs transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>Login</span>
+              </button>
+            )
+          )}
         </div>
       </div>
     </header>
