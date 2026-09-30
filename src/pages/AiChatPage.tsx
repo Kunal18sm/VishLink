@@ -5,7 +5,6 @@ import {
   User,
   Sparkles,
   ArrowLeft,
-  RefreshCw,
   HelpCircle,
   ShieldCheck,
   Zap,
@@ -162,13 +161,18 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     }
   };
 
+  // In Admin mode, strictly filter out any AI Bot greetings or messages
+  const visibleMessages = chatMode === 'admin'
+    ? messages.filter((m) => m.senderRole !== 'bot')
+    : messages;
+
   return (
     <div className="min-h-screen bg-slate-100/80 py-6 sm:py-10 px-3 sm:px-6">
       <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 flex flex-col min-h-[82vh]">
         
         {/* Top Navigation Header */}
         <div className="bg-gradient-to-r from-[#0d1222] via-[#1a233d] to-[#2b172a] text-white p-4 sm:p-5 shadow-md space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <button
                 onClick={onBack}
@@ -188,26 +192,6 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
                 </h1>
               </div>
             </div>
-
-            <button
-              onClick={() =>
-                setMessages([
-                  {
-                    id: Date.now().toString(),
-                    senderRole: chatMode === 'admin' ? 'admin' : 'bot',
-                    text:
-                      chatMode === 'admin'
-                        ? 'Chat history cleared. Send your message below and VishLink Admin Support will reply within 5–10 minutes.'
-                        : 'Chat history cleared. How can I help you today?',
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    status: 'read',
-                  },
-                ])
-              }
-              className="self-end sm:self-auto inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
-            >
-              <RefreshCw className="h-3.5 w-3.5" /> Clear Chat
-            </button>
           </div>
 
           {/* Mode Selector Tabs (AI Bot vs Live Admin Support) */}
@@ -272,7 +256,19 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
 
         {/* Chat Messages Log Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/40 min-h-[380px]">
-          {messages.map((msg) => {
+          {chatMode === 'admin' && visibleMessages.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center space-y-3">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                <Headphones className="h-7 w-7" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-800">VishLink Live Admin Support</h3>
+              <p className="text-xs max-w-sm text-slate-500 leading-relaxed">
+                Type your message below to send it directly to our admin team. Replies typically arrive within 5–10 minutes.
+              </p>
+            </div>
+          )}
+
+          {visibleMessages.map((msg) => {
             const isUser = msg.senderRole === 'user';
             const isAdmin = msg.senderRole === 'admin';
 
@@ -397,4 +393,4 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       </div>
     </div>
   );
-}
+};

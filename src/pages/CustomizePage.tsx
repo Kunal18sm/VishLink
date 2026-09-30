@@ -17,6 +17,11 @@ import {
   ExternalLink,
   Heart,
   Loader2,
+  Headphones,
+  MessageSquare,
+  Star,
+  CheckCircle2,
+  Send,
 } from 'lucide-react';
 import { TemplateItem, PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
@@ -28,6 +33,7 @@ interface CustomizePageProps {
   onBack: () => void;
   onBuyNow: (purchasedOrder: PurchasedOrder) => void;
   onExploreFreeTemplates?: () => void;
+  onOpenChatSupport?: () => void;
 }
 
 export const CustomizePage: React.FC<CustomizePageProps> = ({
@@ -35,6 +41,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
   onBack,
   onBuyNow,
   onExploreFreeTemplates,
+  onOpenChatSupport,
 }) => {
   // Empty default names per user instruction (only specialMessage is pre-filled)
   const [receiverName, setReceiverName] = useState('');
@@ -51,6 +58,41 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Feedback modal state
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackName, setFeedbackName] = useState('');
+  const [feedbackText, setFeedbackText] = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+
+  const handleFeedbackSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackText.trim()) return;
+    setFeedbackLoading(true);
+    try {
+      const res = await fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: feedbackName.trim() || 'Anonymous User',
+          rating: feedbackRating,
+          suggestion: feedbackText.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setFeedbackSubmitted(true);
+        setFeedbackText('');
+        setFeedbackName('');
+      }
+    } catch (err) {
+      console.error('Feedback submit error:', err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  };
 
   // Required photos count for this template from database
   const requiredPhotosCount =
@@ -490,10 +532,157 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
           </div>
         </div>
 
+        {/* Support & Feedback Banner Section (Placed right above InstagramBanner) */}
+        <div className="mt-10 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-5 sm:p-6 text-white border border-slate-700/80 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center sm:text-left">
+              <div className="flex items-center justify-center sm:justify-start gap-2">
+                <span className="bg-rose-500/20 text-rose-300 text-[11px] font-bold px-3 py-0.5 rounded-full border border-rose-500/30 uppercase tracking-wider">
+                  24/7 Support & Feedback
+                </span>
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-white font-serif">
+                Need Support or Have Feedback?
+              </h3>
+              <p className="text-xs text-slate-300">
+                Chat with our live support team or share your suggestions to help us improve VishLink!
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap justify-center">
+              {/* Chat Support Button */}
+              <button
+                type="button"
+                onClick={onOpenChatSupport}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-extrabold text-xs py-3 px-5 rounded-2xl shadow-md transition active:scale-95 cursor-pointer"
+              >
+                <Headphones className="w-4 h-4 text-slate-950" />
+                <span>Chat Support</span>
+              </button>
+
+              {/* Feedback Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setFeedbackSubmitted(false);
+                  setIsFeedbackModalOpen(true);
+                }}
+                className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-xs py-3 px-5 rounded-2xl transition active:scale-95 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4 text-rose-400" />
+                <span>Give Feedback</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Instagram Social Banner */}
-        <div className="mt-12">
+        <div className="mt-8">
           <InstagramBanner />
         </div>
+
+        {/* Feedback Modal Popup */}
+        {isFeedbackModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className="bg-slate-900 border border-slate-800 text-white rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl relative">
+              <button
+                onClick={() => setIsFeedbackModalOpen(false)}
+                className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-slate-300 rounded-full w-8 h-8 flex items-center justify-center text-lg transition cursor-pointer"
+              >
+                &times;
+              </button>
+
+              {feedbackSubmitted ? (
+                <div className="text-center py-6 space-y-3">
+                  <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h3 className="text-lg font-bold text-white">Thank You for Your Feedback!</h3>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Your response has been submitted successfully. We review every suggestion to make VishLink even better!
+                  </p>
+                  <button
+                    onClick={() => setIsFeedbackModalOpen(false)}
+                    className="mt-4 bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs py-2.5 px-6 rounded-xl transition cursor-pointer"
+                  >
+                    Close
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleFeedbackSubmit} className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-5 h-5 text-[#e15b70]" />
+                    <h3 className="text-lg font-bold text-white">Share Your Feedback</h3>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Have a suggestion or feature idea? Tell us how we can improve your link creation experience!
+                  </p>
+
+                  {/* Rating stars */}
+                  <div className="flex items-center gap-1.5 py-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setFeedbackRating(star)}
+                        className="p-1 cursor-pointer"
+                      >
+                        <Star
+                          className={`w-6 h-6 ${
+                            star <= feedbackRating ? 'text-amber-400 fill-amber-400' : 'text-slate-600'
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    <span className="text-xs font-bold text-amber-300 ml-2">{feedbackRating}/5 Stars</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Your Name (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={feedbackName}
+                      onChange={(e) => setFeedbackName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="w-full rounded-xl bg-slate-950 border border-slate-800 px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:border-[#e15b70] focus:outline-hidden"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1">
+                      Feedback / Suggestion *
+                    </label>
+                    <textarea
+                      rows={3}
+                      required
+                      value={feedbackText}
+                      onChange={(e) => setFeedbackText(e.target.value)}
+                      placeholder="Write your feedback or suggestions here..."
+                      className="w-full rounded-xl bg-slate-950 border border-slate-800 p-3 text-xs text-white placeholder-slate-500 focus:border-[#e15b70] focus:outline-hidden"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={feedbackLoading}
+                    className="w-full bg-gradient-to-r from-[#e15b70] to-[#d4485e] hover:opacity-95 text-white font-extrabold text-xs py-3 rounded-xl shadow-md transition cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {feedbackLoading ? (
+                      <span>Submitting...</span>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        <span>Submit Feedback</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Full-screen Action Loading Overlay */}
         <LoadingOverlay

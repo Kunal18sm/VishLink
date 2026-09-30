@@ -302,6 +302,7 @@ export default function App() {
               onBack={() => navigateToPage('home')}
               onBuyNow={handleBuyNow}
               onExploreFreeTemplates={() => handleSelectOccasion('free')}
+              onOpenChatSupport={() => navigateToPage('ai-chat')}
             />
           ) : (
             <AllTemplatesPage
