@@ -296,34 +296,41 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
                   )}
                 </div>
 
-                {/* Message Box */}
-                <div
-                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm shadow-xs ${
-                    isUser
-                      ? 'bg-gradient-to-r from-[#e15b70] to-[#d4485e] text-white rounded-tr-none'
-                      : isAdmin
-                      ? 'bg-slate-900 text-white rounded-tl-none border border-slate-800'
-                      : 'bg-white text-slate-800 rounded-tl-none border border-slate-200/80'
-                  }`}
-                >
-                  {isAdmin && (
-                    <div className="text-[11px] font-bold text-amber-400 mb-1 flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-400 inline" /> VishLink Admin Support
-                    </div>
-                  )}
-
-                  <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
-
-                  {/* Timestamp & WhatsApp Double Blue Ticks for User */}
+                {/* Message Content & Outer Timestamp Wrapper */}
+                <div className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
+                  {/* Message Box */}
                   <div
-                    className={`mt-2 text-[10px] font-medium flex items-center gap-1 ${
-                      isUser ? 'text-rose-100 justify-end' : 'text-slate-400'
+                    className={`rounded-2xl p-3.5 text-xs sm:text-sm shadow-xs ${
+                      isUser
+                        ? 'bg-gradient-to-r from-[#e15b70] to-[#d4485e] text-white rounded-tr-none'
+                        : isAdmin
+                        ? 'bg-slate-900 text-white rounded-tl-none border border-slate-800'
+                        : 'bg-white text-slate-800 rounded-tl-none border border-slate-200/80'
+                    }`}
+                  >
+                    {isAdmin && (
+                      <div className="text-[11px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-400 inline" /> VishLink Admin Support
+                      </div>
+                    )}
+
+                    <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
+                  </div>
+
+                  {/* Timestamp & Double Ticks Outside Message Box */}
+                  <div
+                    className={`mt-1 text-[10px] font-medium flex items-center gap-1 text-slate-400 ${
+                      isUser ? 'justify-end' : 'justify-start'
                     }`}
                   >
                     <span>{msg.timestamp}</span>
                     {isUser && (
-                      <span className="inline-flex items-center" title="Delivered & Read">
-                        <CheckCheck className="w-3.5 h-3.5 text-sky-300 ml-0.5" />
+                      <span className="inline-flex items-center" title={msg.status === 'read' ? 'Read by Admin' : 'Sent/Delivered'}>
+                        {msg.status === 'read' ? (
+                          <CheckCheck className="w-3.5 h-3.5 text-sky-400 ml-0.5" />
+                        ) : (
+                          <CheckCheck className="w-3.5 h-3.5 text-slate-400 ml-0.5" />
+                        )}
                       </span>
                     )}
                   </div>
