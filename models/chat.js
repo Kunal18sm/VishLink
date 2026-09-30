@@ -16,6 +16,11 @@ const messageSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    status: {
+      type: String,
+      enum: ['sent', 'delivered', 'read'],
+      default: 'read',
+    },
   },
   { _id: true, timestamps: true }
 );
@@ -39,6 +44,15 @@ const chatSchema = new mongoose.Schema(
     lastMessageAt: {
       type: Date,
       default: Date.now,
+    },
+    unreadByAdmin: {
+      type: Boolean,
+      default: false,
+    },
+    chatMode: {
+      type: String,
+      enum: ['bot', 'admin'],
+      default: 'bot',
     },
   },
   { timestamps: true }

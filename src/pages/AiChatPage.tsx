@@ -1,11 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, User, Sparkles, ArrowLeft, RefreshCw, HelpCircle, ShieldCheck, Zap } from 'lucide-react';
+import {
+  Bot,
+  Send,
+  User,
+  Sparkles,
+  ArrowLeft,
+  RefreshCw,
+  HelpCircle,
+  ShieldCheck,
+  Zap,
+  Headphones,
+  CheckCheck,
+  UserCheck,
+} from 'lucide-react';
 
 interface Message {
   id: string;
-  senderRole: 'user' | 'bot';
+  senderRole: 'user' | 'bot' | 'admin';
   text: string;
   timestamp: string;
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 interface AiChatPageProps {
@@ -13,12 +27,14 @@ interface AiChatPageProps {
 }
 
 export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
+  const [chatMode, setChatMode] = useState<'bot' | 'admin'>('bot');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       senderRole: 'bot',
       text: 'Namaste! Main VishLink AI Assistant hoon. VishLink templates, photo limits, link creation ya pricing ke bare me kuch bhi poochhein! 😊',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'read',
     },
   ]);
   const [inputText, setInputText] = useState('');
@@ -36,6 +52,43 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const fetchChatHistory = async () => {
+    try {
+      const token = localStorage.getItem('vishlink_token');
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/chat/history', { headers });
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.messages) && data.messages.length > 0) {
+        const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
+          id: m._id || String(idx),
+          senderRole: m.senderRole || 'bot',
+          text: m.text || '',
+          timestamp: m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: m.status || 'read',
+        }));
+        setMessages(formatted);
+        if (data.chatMode) setChatMode(data.chatMode);
+      }
+    } catch (e) {
+      console.warn('Fetch chat history error:', e);
+    }
+  };
+
+  // Initial fetch and polling for Live Admin responses
+  useEffect(() => {
+    fetchChatHistory();
+
+    const interval = setInterval(() => {
+      fetchChatHistory();
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages, loading]);
@@ -49,6 +102,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       senderRole: 'user',
       text: query,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'delivered',
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -61,32 +115,52 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
         text: m.text,
       }));
 
+      const token = localStorage.getItem('vishlink_token');
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           message: query,
           conversationHistory: history,
+          chatMode,
         }),
       });
 
       const data = await res.json();
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        senderRole: 'bot',
-        text: data.reply || 'Mujhe samajh nahi aaya. Please try again.',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages((prev) => [...prev, botMsg]);
+      if (data.messages && Array.isArray(data.messages)) {
+        const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
+          id: m._id || String(idx),
+          senderRole: m.senderRole || 'bot',
+          text: m.text || '',
+          timestamp: m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: m.status || 'read',
+        }));
+        setMessages(formatted);
+      } else {
+        const replyRole = chatMode === 'admin' ? 'admin' : 'bot';
+        const replyMsg: Message = {
+          id: (Date.now() + 1).toString(),
+          senderRole: replyRole,
+          text: data.reply || 'Message processed.',
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: 'read',
+        };
+        setMessages((prev) => [...prev, replyMsg]);
+      }
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         {
           id: (Date.now() + 1).toString(),
           senderRole: 'bot',
-          text: 'Network issue ya server busy hai. Please try again after a few seconds!',
+          text: 'Network issue or server busy. Please try again in a few seconds!',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: 'read',
         },
       ]);
     } finally {
@@ -96,113 +170,202 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
 
   return (
     <div className="min-h-screen bg-slate-100/80 py-6 sm:py-10 px-3 sm:px-6">
-      <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 flex flex-col min-h-[80vh]">
-        {/* Header - Spacious, clean responsive layout */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-[#0d1222] via-[#1a233d] to-[#2b172a] text-white p-5 sm:p-6 shadow-md">
-          <div className="flex items-center gap-3.5">
+      <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-white shadow-2xl border border-slate-200 flex flex-col min-h-[82vh]">
+        
+        {/* Top Navigation Header */}
+        <div className="bg-gradient-to-r from-[#0d1222] via-[#1a233d] to-[#2b172a] text-white p-4 sm:p-6 shadow-md space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <button
+                onClick={onBack}
+                className="rounded-xl bg-white/10 p-2 text-white hover:bg-white/20 transition cursor-pointer shrink-0"
+                title="Back to Home"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#e15b70] to-[#f48a9b] text-white shadow-md shrink-0">
+                {chatMode === 'admin' ? <Headphones className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
+              </div>
+
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-lg sm:text-xl font-bold font-serif text-white tracking-wide">
+                    {chatMode === 'admin' ? 'VishLink Live Admin Support' : 'VishLink AI Assistant'}
+                  </h1>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {chatMode === 'admin' ? 'Live Agent Online' : 'Live AI Online'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  {chatMode === 'admin'
+                    ? 'Direct human support with VishLink Admin & Helpdesk'
+                    : 'Instant 24/7 AI help for wishing website questions'}
+                </p>
+              </div>
+            </div>
+
             <button
-              onClick={onBack}
-              className="rounded-xl bg-white/10 p-2 text-white hover:bg-white/20 transition cursor-pointer shrink-0"
-              title="Back to Home"
+              onClick={() =>
+                setMessages([
+                  {
+                    id: Date.now().toString(),
+                    senderRole: 'bot',
+                    text: 'Chat history cleared. How can I help you today?',
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    status: 'read',
+                  },
+                ])
+              }
+              className="self-end sm:self-auto inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
             >
-              <ArrowLeft className="h-5 w-5" />
+              <RefreshCw className="h-3.5 w-3.5" /> Clear Chat
+            </button>
+          </div>
+
+          {/* Mode Selector Tabs (AI Bot vs Live Admin Support) */}
+          <div className="flex items-center p-1 bg-white/10 rounded-2xl border border-white/10 max-w-md mx-auto sm:mx-0">
+            <button
+              type="button"
+              onClick={() => setChatMode('bot')}
+              className={`flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                chatMode === 'bot'
+                  ? 'bg-white text-slate-900 shadow-md scale-102'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <Bot className="w-4 h-4 text-[#e15b70]" />
+              <span>🤖 AI Support Bot</span>
             </button>
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#e15b70] to-[#f48a9b] text-white shadow-md shrink-0">
-              <Bot className="h-6 w-6" />
-            </div>
-
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-lg sm:text-xl font-bold font-serif text-white tracking-wide">
-                  VishLink AI Assistant
-                </h1>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[10px] font-bold text-emerald-300 border border-emerald-500/30">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live AI
-                </span>
-              </div>
-              <p className="text-xs text-slate-300">Fast 24/7 instant support for wishing websites</p>
-            </div>
-          </div>
-
-          <button
-            onClick={() =>
-              setMessages([
-                {
-                  id: Date.now().toString(),
-                  senderRole: 'bot',
-                  text: 'Chat history cleared. How can I help you today?',
-                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                },
-              ])
-            }
-            className="self-end sm:self-auto inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/20 transition cursor-pointer"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Clear Chat
-          </button>
-        </div>
-
-        {/* Quick Suggestion Chips */}
-        <div className="bg-rose-50/60 border-b border-rose-100 p-3 sm:p-4">
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-            <span className="text-xs font-bold text-slate-500 flex items-center gap-1 shrink-0">
-              <HelpCircle className="h-3.5 w-3.5 text-[#e15b70]" /> Quick Chips:
-            </span>
-            {sampleQuestions.map((q, idx) => (
-              <button
-                key={idx}
-                onClick={() => handleSendMessage(q)}
-                className="whitespace-nowrap rounded-xl border border-rose-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#e15b70] shadow-2xs hover:bg-[#e15b70] hover:text-white transition-all cursor-pointer shrink-0"
-              >
-                {q}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={() => setChatMode('admin')}
+              className={`flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
+                chatMode === 'admin'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md scale-102 font-extrabold'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <Headphones className="w-4 h-4" />
+              <span>👨‍💻 Chat with Admin</span>
+            </button>
           </div>
         </div>
+
+        {/* Quick Suggestion Chips (Shown in Bot mode) */}
+        {chatMode === 'bot' && (
+          <div className="bg-rose-50/60 border-b border-rose-100 p-3 sm:p-4">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
+              <span className="text-xs font-bold text-slate-500 flex items-center gap-1 shrink-0">
+                <HelpCircle className="h-3.5 w-3.5 text-[#e15b70]" /> Quick Chips:
+              </span>
+              {sampleQuestions.map((q, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSendMessage(q)}
+                  className="whitespace-nowrap rounded-xl border border-rose-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-[#e15b70] shadow-2xs hover:bg-[#e15b70] hover:text-white transition-all cursor-pointer shrink-0"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Live Admin Mode Notice Banner */}
+        {chatMode === 'admin' && (
+          <div className="bg-amber-50 border-b border-amber-200 p-3 text-center text-xs font-bold text-amber-800 flex items-center justify-center gap-2">
+            <UserCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>You are now chatting directly with VishLink Admin Support. Messages sent here notify the admin team live!</span>
+          </div>
+        )}
 
         {/* Chat Messages Log Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-50/40 min-h-[380px]">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex items-start gap-3 ${msg.senderRole === 'user' ? 'flex-row-reverse' : ''}`}
-            >
-              <div
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-xs ${
-                  msg.senderRole === 'user'
-                    ? 'bg-slate-900'
-                    : 'bg-gradient-to-tr from-[#e15b70] to-[#f48a9b]'
-                }`}
-              >
-                {msg.senderRole === 'user' ? <User className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-              </div>
+          {messages.map((msg) => {
+            const isUser = msg.senderRole === 'user';
+            const isAdmin = msg.senderRole === 'admin';
 
+            return (
               <div
-                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm shadow-xs ${
-                  msg.senderRole === 'user'
-                    ? 'bg-gradient-to-r from-[#e15b70] to-[#d4485e] text-white rounded-tr-none'
-                    : 'bg-white text-slate-800 rounded-tl-none border border-slate-200/80'
-                }`}
+                key={msg.id}
+                className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : ''}`}
               >
-                <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
+                {/* Avatar */}
                 <div
-                  className={`mt-2 text-[10px] font-medium ${
-                    msg.senderRole === 'user' ? 'text-rose-100 text-right' : 'text-slate-400'
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-white shadow-xs ${
+                    isUser
+                      ? 'bg-slate-900'
+                      : isAdmin
+                      ? 'bg-gradient-to-tr from-purple-600 to-indigo-700'
+                      : 'bg-gradient-to-tr from-[#e15b70] to-[#f48a9b]'
                   }`}
                 >
-                  {msg.timestamp}
+                  {isUser ? (
+                    <User className="h-5 w-5" />
+                  ) : isAdmin ? (
+                    <Headphones className="h-5 w-5 text-amber-300" />
+                  ) : (
+                    <Bot className="h-5 w-5" />
+                  )}
+                </div>
+
+                {/* Message Box */}
+                <div
+                  className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-4 text-xs sm:text-sm shadow-xs ${
+                    isUser
+                      ? 'bg-gradient-to-r from-[#e15b70] to-[#d4485e] text-white rounded-tr-none'
+                      : isAdmin
+                      ? 'bg-slate-900 text-white rounded-tl-none border border-slate-800'
+                      : 'bg-white text-slate-800 rounded-tl-none border border-slate-200/80'
+                  }`}
+                >
+                  {isAdmin && (
+                    <div className="text-[11px] font-bold text-amber-400 mb-1 flex items-center gap-1">
+                      👑 VishLink Admin Support
+                    </div>
+                  )}
+
+                  <div className="whitespace-pre-wrap leading-relaxed">{msg.text}</div>
+
+                  {/* Timestamp & WhatsApp Double Blue Ticks for User */}
+                  <div
+                    className={`mt-2 text-[10px] font-medium flex items-center gap-1 ${
+                      isUser ? 'text-rose-100 justify-end' : 'text-slate-400'
+                    }`}
+                  >
+                    <span>{msg.timestamp}</span>
+                    {isUser && (
+                      <span className="inline-flex items-center" title="Delivered & Read">
+                        <CheckCheck className="w-3.5 h-3.5 text-sky-300 ml-0.5" />
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
 
           {loading && (
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#e15b70] to-[#f48a9b] text-white shadow-xs">
-                <Bot className="h-5 w-5 animate-spin" />
+                {chatMode === 'admin' ? (
+                  <Headphones className="h-5 w-5 animate-pulse" />
+                ) : (
+                  <Bot className="h-5 w-5 animate-spin" />
+                )}
               </div>
               <div className="rounded-2xl bg-white border border-slate-200 px-4 py-3 text-xs font-semibold text-slate-600 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-[#e15b70] animate-pulse" /> VishLink AI is typing...
+                <Sparkles className="h-4 w-4 text-[#e15b70] animate-pulse" />
+                <span>
+                  {chatMode === 'admin' ? 'Sending message to Admin Support...' : 'VishLink AI is typing...'}
+                </span>
               </div>
             </div>
           )}
@@ -222,7 +385,11 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask about templates, photo upload limits, or payment..."
+              placeholder={
+                chatMode === 'admin'
+                  ? 'Type a message to VishLink Admin Live Support...'
+                  : 'Ask about templates, photo upload limits, or payment...'
+              }
               className="flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs sm:text-sm focus:border-[#e15b70] focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-rose-100"
             />
             <button
@@ -235,10 +402,11 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
           </form>
           <div className="mt-2.5 flex items-center justify-center gap-6 text-[11px] text-slate-400">
             <span className="flex items-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Secure AI Chat
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Encrypted Support Chat
             </span>
             <span className="flex items-center gap-1">
-              <Zap className="h-3.5 w-3.5 text-amber-500" /> Powered by Gemini AI
+              <Zap className="h-3.5 w-3.5 text-amber-500" />
+              {chatMode === 'admin' ? 'Live Admin Helpdesk' : 'Gemini AI Powered'}
             </span>
           </div>
         </div>

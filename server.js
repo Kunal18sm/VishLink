@@ -1296,32 +1296,186 @@ app.delete('/api/admin/orders/:id', authenticateToken, adminOnly, async (req, re
   }
 });
 
-// ---------------- AI CHATBOT ROUTE ---------------- //
+// ---------------- CHATBOT & LIVE ADMIN SUPPORT ROUTES ---------------- //
 
+// Get User Chat History
+app.get('/api/chat/history', optionalAuth, async (req, res) => {
+  try {
+    const sessionId = req.headers['x-session-id'] || req.query.sessionId || '';
+    let userChat = null;
+
+    if (req.user) {
+      userChat = await Chat.findOne({ user: req.user.id });
+    } else if (sessionId) {
+      userChat = await Chat.findOne({ sessionId });
+    }
+
+    if (!userChat) {
+      return res.json({ success: true, messages: [], chatMode: 'bot' });
+    }
+
+    res.json({
+      success: true,
+      messages: userChat.messages || [],
+      chatMode: userChat.chatMode || 'bot',
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message, messages: [] });
+  }
+});
+
+// Send Chat Message (Bot or Admin Mode)
 app.post('/api/chat', optionalAuth, async (req, res) => {
   try {
-    const { message, conversationHistory } = req.body;
+    const { message, conversationHistory, chatMode = 'bot', sessionId: reqSessionId } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ success: false, message: 'Message cannot be empty.' });
     }
 
-    const aiReply = await generateReply(message, conversationHistory || []);
+    const sessionId = reqSessionId || req.headers['x-session-id'] || `session_${Date.now()}`;
+    let userChat = null;
 
     if (req.user) {
-      let userChat = await Chat.findOne({ user: req.user.id });
+      userChat = await Chat.findOne({ user: req.user.id });
       if (!userChat) {
-        userChat = new Chat({ user: req.user.id, messages: [] });
+        userChat = new Chat({ user: req.user.id, sessionId, messages: [] });
       }
-      userChat.messages.push({ senderRole: 'user', text: message });
-      userChat.messages.push({ senderRole: 'bot', text: aiReply });
-      userChat.lastMessage = aiReply;
-      userChat.lastMessageAt = new Date();
-      await userChat.save();
+    } else {
+      userChat = await Chat.findOne({ sessionId });
+      if (!userChat) {
+        userChat = new Chat({ sessionId, messages: [] });
+      }
     }
 
-    res.json({ success: true, reply: aiReply });
+    userChat.chatMode = chatMode;
+    const cleanUserText = message.trim();
+    userChat.messages.push({
+      senderRole: 'user',
+      text: cleanUserText,
+      status: 'delivered',
+    });
+
+    if (chatMode === 'admin') {
+      userChat.lastMessage = `[User]: ${cleanUserText}`;
+      userChat.lastMessageAt = new Date();
+      userChat.unreadByAdmin = true;
+      await userChat.save();
+
+      // Trigger Admin Live Notification
+      const userNameStr = req.user ? (req.user.username || req.user.email) : 'Guest Visitor';
+      notifyAdmin({
+        type: 'LIVE_CHAT_MESSAGE',
+        title: '💬 New Live Support Message',
+        message: `${userNameStr}: "${cleanUserText}"`,
+        data: { chatId: userChat._id, userId: req.user ? req.user.id : null },
+      });
+
+      return res.json({
+        success: true,
+        reply: 'Message sent to Live Admin Support. An agent will respond shortly! 💬',
+        chatMode: 'admin',
+        messages: userChat.messages,
+      });
+    }
+
+    // AI Bot Mode (Gemini)
+    const aiReply = await generateReply(cleanUserText, conversationHistory || []);
+    userChat.messages.push({
+      senderRole: 'bot',
+      text: aiReply,
+      status: 'read',
+    });
+    userChat.lastMessage = aiReply;
+    userChat.lastMessageAt = new Date();
+    await userChat.save();
+
+    res.json({
+      success: true,
+      reply: aiReply,
+      chatMode: 'bot',
+      messages: userChat.messages,
+    });
   } catch (err) {
     console.error('Chat error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Get All Customer Chat Threads
+app.get('/api/admin/chats', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const rawChats = await Chat.find()
+      .populate('user', 'username email avatarUrl role')
+      .sort({ lastMessageAt: -1 })
+      .lean();
+
+    const chats = rawChats.map((c) => ({
+      _id: String(c._id),
+      user: c.user || {
+        _id: c.sessionId || 'guest',
+        username: c.sessionId ? `Guest (${c.sessionId.slice(-6)})` : 'Anonymous Guest',
+        email: 'Guest User',
+        avatarUrl: '',
+      },
+      messages: c.messages || [],
+      lastMessage: c.lastMessage || '',
+      lastMessageAt: c.lastMessageAt || c.updatedAt || new Date(),
+      unreadByAdmin: Boolean(c.unreadByAdmin),
+      chatMode: c.chatMode || 'bot',
+    }));
+
+    res.json({ success: true, chats });
+  } catch (err) {
+    console.error('Admin fetch chats error:', err);
+    res.status(500).json({ success: false, message: err.message, chats: [] });
+  }
+});
+
+// Admin: Send Reply to User Chat Thread
+app.post('/api/admin/chats/:chatId/reply', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const { chatId } = req.params;
+    const { replyText } = req.body;
+
+    if (!replyText || !replyText.trim()) {
+      return res.status(400).json({ success: false, message: 'Reply text is required.' });
+    }
+
+    const chatDoc = await Chat.findById(chatId);
+    if (!chatDoc) {
+      return res.status(404).json({ success: false, message: 'Chat thread not found.' });
+    }
+
+    const cleanReply = replyText.trim();
+    chatDoc.messages.push({
+      senderRole: 'admin',
+      text: cleanReply,
+      status: 'read',
+    });
+
+    // Mark previous user messages as read
+    chatDoc.messages.forEach((m) => {
+      if (m.senderRole === 'user') m.status = 'read';
+    });
+
+    chatDoc.lastMessage = `[Admin]: ${cleanReply}`;
+    chatDoc.lastMessageAt = new Date();
+    chatDoc.unreadByAdmin = false;
+    await chatDoc.save();
+
+    res.json({ success: true, message: 'Reply sent successfully!', chat: chatDoc });
+  } catch (err) {
+    console.error('Admin send reply error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Delete Chat Thread
+app.delete('/api/admin/chats/:chatId', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    await Chat.findByIdAndDelete(req.params.chatId);
+    res.json({ success: true, message: 'Chat thread deleted successfully.' });
+  } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 });
