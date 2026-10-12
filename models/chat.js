@@ -53,9 +53,13 @@ const chatSchema = new mongoose.Schema(
       type: String,
       enum: ['bot', 'admin'],
       default: 'bot',
+      index: true,
     },
   },
   { timestamps: true }
 );
+
+chatSchema.index({ user: 1, chatMode: 1 });
+chatSchema.index({ sessionId: 1, chatMode: 1 });
 
 export const Chat = mongoose.models.Chat || mongoose.model('Chat', chatSchema);

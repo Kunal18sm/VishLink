@@ -1301,33 +1301,34 @@ app.delete('/api/admin/orders/:id', authenticateToken, adminOnly, async (req, re
 
 // ---------------- CHATBOT & LIVE ADMIN SUPPORT ROUTES ---------------- //
 
-// Get User Chat History
+// Get User Chat History (Separate Bot vs Admin Room)
 app.get('/api/chat/history', optionalAuth, async (req, res) => {
   try {
     const sessionId = req.headers['x-session-id'] || req.query.sessionId || '';
+    const requestedMode = req.query.chatMode === 'admin' ? 'admin' : 'bot';
     let userChat = null;
 
     if (req.user) {
-      userChat = await Chat.findOne({ user: req.user.id });
+      userChat = await Chat.findOne({ user: req.user.id, chatMode: requestedMode });
     } else if (sessionId) {
-      userChat = await Chat.findOne({ sessionId });
+      userChat = await Chat.findOne({ sessionId, chatMode: requestedMode });
     }
 
     if (!userChat) {
-      return res.json({ success: true, messages: [], chatMode: 'bot' });
+      return res.json({ success: true, messages: [], chatMode: requestedMode });
     }
 
     res.json({
       success: true,
       messages: userChat.messages || [],
-      chatMode: userChat.chatMode || 'bot',
+      chatMode: userChat.chatMode || requestedMode,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message, messages: [] });
   }
 });
 
-// Send Chat Message (Bot or Admin Mode)
+// Send Chat Message (Completely Separated Bot vs Admin Mode)
 app.post('/api/chat', optionalAuth, async (req, res) => {
   try {
     const { message, conversationHistory, chatMode = 'bot', sessionId: reqSessionId } = req.body;
@@ -1336,29 +1337,30 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
     }
 
     const sessionId = reqSessionId || req.headers['x-session-id'] || `session_${Date.now()}`;
+    const mode = chatMode === 'admin' ? 'admin' : 'bot';
     let userChat = null;
 
     if (req.user) {
-      userChat = await Chat.findOne({ user: req.user.id });
+      userChat = await Chat.findOne({ user: req.user.id, chatMode: mode });
       if (!userChat) {
-        userChat = new Chat({ user: req.user.id, sessionId, messages: [] });
+        userChat = new Chat({ user: req.user.id, sessionId, chatMode: mode, messages: [] });
       }
     } else {
-      userChat = await Chat.findOne({ sessionId });
+      userChat = await Chat.findOne({ sessionId, chatMode: mode });
       if (!userChat) {
-        userChat = new Chat({ sessionId, messages: [] });
+        userChat = new Chat({ sessionId, chatMode: mode, messages: [] });
       }
     }
 
-    userChat.chatMode = chatMode;
+    userChat.chatMode = mode;
     const cleanUserText = message.trim();
     userChat.messages.push({
       senderRole: 'user',
       text: cleanUserText,
-      status: 'delivered',
+      status: mode === 'admin' ? 'delivered' : 'read',
     });
 
-    if (chatMode === 'admin') {
+    if (mode === 'admin') {
       userChat.lastMessage = `[User]: ${cleanUserText}`;
       userChat.lastMessageAt = new Date();
       userChat.unreadByAdmin = true;
@@ -1404,10 +1406,10 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
   }
 });
 
-// Admin: Get All Customer Chat Threads
+// Admin: Get All Customer Chat Threads (ONLY Live Admin Support threads)
 app.get('/api/admin/chats', authenticateToken, adminOnly, async (req, res) => {
   try {
-    const rawChats = await Chat.find()
+    const rawChats = await Chat.find({ chatMode: 'admin' })
       .populate('user', 'username email avatarUrl role')
       .sort({ lastMessageAt: -1 })
       .lean();
@@ -1424,7 +1426,7 @@ app.get('/api/admin/chats', authenticateToken, adminOnly, async (req, res) => {
       lastMessage: c.lastMessage || '',
       lastMessageAt: c.lastMessageAt || c.updatedAt || new Date(),
       unreadByAdmin: Boolean(c.unreadByAdmin),
-      chatMode: c.chatMode || 'bot',
+      chatMode: 'admin',
     }));
 
     res.json({ success: true, chats });

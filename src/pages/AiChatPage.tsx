@@ -26,15 +26,16 @@ interface AiChatPageProps {
 
 export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
   const [chatMode, setChatMode] = useState<'bot' | 'admin'>('bot');
-  const [messages, setMessages] = useState<Message[]>([
+  const [botMessages, setBotMessages] = useState<Message[]>([
     {
-      id: '1',
+      id: 'bot_welcome',
       senderRole: 'bot',
       text: 'Namaste! I am your VishLink AI Assistant. Feel free to ask about templates, photo upload limits, link creation, or pricing!',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       status: 'read',
     },
   ]);
+  const [adminMessages, setAdminMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -50,29 +51,31 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const fetchChatHistory = async (isInitial = false) => {
+  const fetchChatHistory = async (mode: 'bot' | 'admin') => {
     try {
       const token = localStorage.getItem('vishlink_token');
       const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch('/api/chat/history', { headers });
+      const res = await fetch(`/api/chat/history?chatMode=${mode}`, { headers });
       const data = await res.json();
-      if (res.ok && data.success) {
-        if (isInitial && data.chatMode) {
-          setChatMode(data.chatMode);
-        }
-        if (Array.isArray(data.messages) && data.messages.length > 0) {
-          const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
-            id: m._id || String(idx),
-            senderRole: m.senderRole || 'bot',
-            text: m.text || '',
-            timestamp: m.createdAt
-              ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-              : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            status: m.status || 'read',
-          }));
-          setMessages(formatted);
+      if (res.ok && data.success && Array.isArray(data.messages)) {
+        const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
+          id: m._id || String(idx),
+          senderRole: m.senderRole || (mode === 'admin' ? 'admin' : 'bot'),
+          text: m.text || '',
+          timestamp: m.createdAt
+            ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          status: m.status || 'read',
+        }));
+
+        if (mode === 'bot') {
+          if (formatted.length > 0) {
+            setBotMessages(formatted);
+          }
+        } else {
+          setAdminMessages(formatted);
         }
       }
     } catch (e) {
@@ -80,16 +83,22 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     }
   };
 
-  // Initial fetch and background polling for Live Admin responses
+  // Initial fetch for both rooms on mount
   useEffect(() => {
-    fetchChatHistory(true);
-
-    const interval = setInterval(() => {
-      fetchChatHistory(false);
-    }, 4000);
-
-    return () => clearInterval(interval);
+    fetchChatHistory('bot');
+    fetchChatHistory('admin');
   }, []);
+
+  // Poll for Live Admin replies every 4 seconds when user is on Admin tab
+  useEffect(() => {
+    if (chatMode === 'admin') {
+      fetchChatHistory('admin');
+      const interval = setInterval(() => {
+        fetchChatHistory('admin');
+      }, 4000);
+      return () => clearInterval(interval);
+    }
+  }, [chatMode]);
 
   const handleSendMessage = async (textToSend?: string) => {
     const query = textToSend || inputText;
@@ -103,13 +112,19 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       status: 'delivered',
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    if (chatMode === 'bot') {
+      setBotMessages((prev) => [...prev, userMsg]);
+    } else {
+      setAdminMessages((prev) => [...prev, userMsg]);
+    }
+
     if (!textToSend) setInputText('');
     setLoading(true);
     setTimeout(scrollToBottom, 50);
 
     try {
-      const history = messages.map((m) => ({
+      const activeMessages = chatMode === 'bot' ? botMessages : adminMessages;
+      const history = activeMessages.map((m) => ({
         senderRole: m.senderRole,
         text: m.text,
       }));
@@ -132,19 +147,24 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
       if (data.messages && Array.isArray(data.messages)) {
         const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
           id: m._id || String(idx),
-          senderRole: m.senderRole || 'bot',
+          senderRole: m.senderRole || (chatMode === 'admin' ? 'admin' : 'bot'),
           text: m.text || '',
           timestamp: m.createdAt
             ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
             : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           status: m.status || 'read',
         }));
-        setMessages(formatted);
+
+        if (chatMode === 'bot') {
+          setBotMessages(formatted);
+        } else {
+          setAdminMessages(formatted);
+        }
         setTimeout(scrollToBottom, 50);
       }
     } catch (err) {
       if (chatMode === 'bot') {
-        setMessages((prev) => [
+        setBotMessages((prev) => [
           ...prev,
           {
             id: (Date.now() + 1).toString(),
@@ -161,23 +181,13 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
     }
   };
 
-  // Completely separate AI Bot Chat messages vs Live Admin Support Chat messages
-  // Also automatically filter out AI Bot messages older than 24 hours
+  // 24-hour expiration filter for AI Bot messages
   const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
-
-  const visibleMessages = messages.filter((m) => {
-    // 1. Auto-expire AI Bot messages older than 24h
-    if (m.senderRole === 'bot' && m.id && Number(m.id) && Number(m.id) < twentyFourHoursAgo) {
+  const visibleMessages = (chatMode === 'bot' ? botMessages : adminMessages).filter((m) => {
+    if (chatMode === 'bot' && m.senderRole === 'bot' && m.id && Number(m.id) && Number(m.id) < twentyFourHoursAgo) {
       return false;
     }
-
-    if (chatMode === 'admin') {
-      // Admin Mode: ONLY Admin replies and User messages (AI Bot messages are completely hidden)
-      return m.senderRole === 'admin' || m.senderRole === 'user';
-    } else {
-      // AI Bot Mode: ONLY AI Bot replies and User messages (Admin replies & admin messages are completely hidden)
-      return m.senderRole === 'bot' || m.senderRole === 'user';
-    }
+    return true;
   });
 
   return (
