@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Star,
   Send,
+  ShieldCheck,
 } from 'lucide-react';
 import { PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
@@ -292,6 +293,16 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                   <span className="text-slate-400 text-xs font-medium">Purchased Links:</span>
                   <span className="font-bold text-white text-sm">{activeOrders.length} Active</span>
                 </div>
+
+                {onOpenAdmin && (userInfo?.isAdmin || userInfo?.role === 'admin') && (
+                  <button
+                    onClick={onOpenAdmin}
+                    className="bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-extrabold px-4 py-2 rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer inline-flex items-center gap-1.5 active:scale-95"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Admin Master Panel</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => setShowFeedbackModal(true)}

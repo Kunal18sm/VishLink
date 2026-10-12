@@ -24,6 +24,7 @@ import { FaqsPage } from './pages/FaqsPage';
 import { ValidityPage } from './pages/ValidityPage';
 import { AiChatPage } from './pages/AiChatPage';
 import { AllTemplatesPage } from './pages/AllTemplatesPage';
+import { AdminPage } from './pages/AdminPage';
 
 import { TEMPLATES } from './data/mockData';
 import { TemplateItem, PurchasedOrder } from './types';
@@ -32,6 +33,7 @@ export type PageType =
   | 'home'
   | 'customize'
   | 'profile'
+  | 'admin'
   | 'about'
   | 'contact'
   | 'terms'
@@ -215,6 +217,7 @@ export default function App() {
         wishlistCount={wishlistCount}
         onOpenProfile={() => navigateToPage('profile')}
         onOpenAiChat={() => navigateToPage('ai-chat')}
+        onOpenAdmin={() => navigateToPage('admin')}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSelectOccasion={handleSelectOccasion}
         onSearch={(query) => {
@@ -310,7 +313,30 @@ export default function App() {
             onBack={() => navigateToPage('home')}
             onExploreTemplates={() => navigateToPage('all-templates')}
             onLogout={() => setCurrentUser(null)}
+            onOpenAdmin={() => navigateToPage('admin')}
           />
+        )}
+
+        {currentPage === 'admin' && (
+          currentUser?.isAdmin || currentUser?.role === 'admin' ? (
+            <AdminPage onBack={() => navigateToPage('home')} />
+          ) : (
+            <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-4 text-2xl font-bold">
+                🛡️
+              </div>
+              <h2 className="text-xl font-bold text-slate-900 mb-2">Admin Access Required</h2>
+              <p className="text-sm text-slate-600 max-w-md mb-6">
+                Only authorized VishLink administrators can access this control panel. Please log in with your admin account.
+              </p>
+              <button
+                onClick={() => navigateToPage('home')}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition cursor-pointer"
+              >
+                Return to Home
+              </button>
+            </div>
+          )
         )}
 
         {currentPage === 'about' && (

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Search, User, Download, MessageSquare, LogIn, Home } from 'lucide-react';
+import { Search, User, Download, MessageSquare, LogIn, Home, ShieldCheck } from 'lucide-react';
 
 interface NavbarProps {
   wishlistCount?: number;
   onOpenProfile?: () => void;
   onOpenAiChat?: () => void;
+  onOpenAdmin?: () => void;
   onOpenAuth?: () => void;
   onSelectOccasion: (occasion: string) => void;
   onSearch: (query: string) => void;
@@ -15,6 +16,7 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   onOpenProfile,
   onOpenAiChat,
+  onOpenAdmin,
   onOpenAuth,
   onSearch,
   onNavigateToSection,
@@ -92,6 +94,18 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <MessageSquare className="w-3.5 h-3.5 text-[#e15b70]" />
               <span>Chat Support</span>
+            </button>
+          )}
+
+          {/* Admin Control Center Link (Visible ONLY to Admin) */}
+          {onOpenAdmin && (currentUser?.isAdmin || currentUser?.role === 'admin') && (
+            <button
+              onClick={onOpenAdmin}
+              title="Admin Control Center"
+              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-extrabold px-3.5 py-1.5 rounded-full shadow-xs transition-all active:scale-95 whitespace-nowrap cursor-pointer"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-white" />
+              <span>Admin Panel</span>
             </button>
           )}
 
