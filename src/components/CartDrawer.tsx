@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Trash2, ShoppingBag, ArrowRight, CheckCircle2, Sparkles, Link as LinkIcon, Share2 } from 'lucide-react';
+import { X, Trash2, ShoppingBag, ArrowRight, CheckCircle2, Sparkles, Loader2, AlertCircle } from 'lucide-react';
 import { CartItem } from '../types';
+import { launchRazorpayCheckout } from '../utils/razorpay';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -22,18 +23,52 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   if (!isOpen) return null;
 
   const [isOrderPlaced, setIsOrderPlaced] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   const subtotal = cartItems.reduce((acc, item) => {
     return acc + item.template.price * item.quantity;
   }, 0);
 
-  const handleCheckout = () => {
-    setIsOrderPlaced(true);
-    setTimeout(() => {
-      setIsOrderPlaced(false);
-      onClearCart();
-      onClose();
-    }, 4000);
+  const handleCheckout = async () => {
+    if (subtotal <= 0) return;
+    setIsProcessingPayment(true);
+    setCheckoutError(null);
+
+    try {
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+      const amountInPaise = Math.round(subtotal * 100);
+
+      await launchRazorpayCheckout({
+        amountInPaise,
+        currency: 'INR',
+        name: 'VishLink Wishing Cart',
+        description: `Payment for ${cartItems.length} Wishing Link(s)`,
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || '',
+          contact: user?.phone || '',
+        },
+        notes: {
+          itemCount: String(cartItems.length),
+        },
+      });
+
+      setIsOrderPlaced(true);
+      setTimeout(() => {
+        setIsOrderPlaced(false);
+        onClearCart();
+        onClose();
+      }, 4000);
+    } catch (err: any) {
+      console.error('Cart checkout error:', err);
+      if (err.message && !err.message.includes('closed by the user')) {
+        setCheckoutError(err.message || 'Payment failed. Please try again.');
+      }
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   return (
@@ -133,6 +168,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         {/* Drawer Footer */}
         {!isOrderPlaced && cartItems.length > 0 && (
           <div className="p-5 border-t border-slate-100 bg-slate-50 space-y-3">
+            {checkoutError && (
+              <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{checkoutError}</span>
+              </div>
+            )}
+
             <div className="flex items-center justify-between text-xs text-slate-600">
               <span>Digital Web Link Delivery</span>
               <span className="text-emerald-600 font-bold">FREE (Instant)</span>
@@ -145,10 +187,20 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
             <button
               onClick={handleCheckout}
-              className="w-full bg-[#0d1222] hover:bg-[#e15b70] text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs cursor-pointer"
+              disabled={isProcessingPayment}
+              className="w-full bg-[#0d1222] hover:bg-[#e15b70] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-xs cursor-pointer"
             >
-              <span>Pay & Generate Wishing Links</span>
-              <ArrowRight className="w-4 h-4" />
+              {isProcessingPayment ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Opening Razorpay Checkout...</span>
+                </>
+              ) : (
+                <>
+                  <span>Pay & Generate Wishing Links</span>
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
             </button>
           </div>
         )}

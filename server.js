@@ -12,6 +12,8 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v2 as cloudinary } from 'cloudinary';
 import { OAuth2Client } from 'google-auth-library';
+import crypto from 'crypto';
+import Razorpay from 'razorpay';
 import { User } from './models/user.js';
 import { WebSample } from './models/WebSample.js';
 import { PurchasedWeb } from './models/purchasedWeb.js';
@@ -37,6 +39,25 @@ cloudinary.config({
   api_key: process.env.CLOUD_API_KEY || '984621416722855',
   api_secret: process.env.CLOUD_API_SECRET || 'Wu_h-_KRjRBasTVfjD_CYh2J0ec',
 });
+
+// Razorpay Standard Web Checkout Setup
+const RAZORPAY_KEY_ID = String(process.env.RAZORPAY_KEY_ID || '').trim();
+const RAZORPAY_KEY_SECRET = String(process.env.RAZORPAY_KEY_SECRET || '').trim();
+
+let razorpay = null;
+if (RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET) {
+  try {
+    razorpay = new Razorpay({
+      key_id: RAZORPAY_KEY_ID,
+      key_secret: RAZORPAY_KEY_SECRET,
+    });
+    console.log('✅ Razorpay initialized successfully with key:', RAZORPAY_KEY_ID);
+  } catch (err) {
+    console.warn('⚠️ Razorpay initialization warning:', err.message);
+  }
+} else {
+  console.warn('⚠️ Razorpay credentials missing or incomplete in environment.');
+}
 
 // Memory Storage for Multer uploads
 const upload = multer({
@@ -539,6 +560,189 @@ app.get('/api/templates/:id', async (req, res) => {
   }
 });
 
+// ---------------- RAZORPAY STANDARD WEB CHECKOUT ROUTES ---------------- //
+
+// Fetch Public Razorpay Key ID (For Frontend Checkout Modal)
+app.get('/api/razorpay/key', (req, res) => {
+  const keyId = RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || '';
+  res.json({ success: true, key_id: keyId });
+});
+
+// Step 1: Create Razorpay Order (POST /api/create-order)
+const handleCreateRazorpayOrder = async (req, res) => {
+  try {
+    const { amount, currency = 'INR', receipt, notes = {} } = req.body;
+
+    if (amount === undefined || amount === null || Number.isNaN(Number(amount))) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid amount in paise is required.',
+      });
+    }
+
+    const numericAmount = Math.round(Number(amount));
+
+    // Validate minimum amount: >= 100 paise (₹1)
+    if (numericAmount < 100) {
+      return res.status(400).json({
+        success: false,
+        message: 'Amount must be at least 100 paise (₹1).',
+      });
+    }
+
+    const keyId = RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID;
+    const keySecret = RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET;
+
+    if (!keyId || !keySecret) {
+      return res.status(500).json({
+        success: false,
+        message: 'Razorpay credentials not configured on server.',
+      });
+    }
+
+    const rzp = razorpay || new Razorpay({ key_id: keyId, key_secret: keySecret });
+
+    // Sanitize notes for Razorpay (must be pure ASCII without emojis, max 255 chars per value)
+    const sanitizedNotes = {};
+    if (notes && typeof notes === 'object') {
+      for (const [k, v] of Object.entries(notes)) {
+        if (v !== undefined && v !== null) {
+          const cleanKey = String(k).replace(/[^\x00-\x7F]/g, '').trim().substring(0, 40);
+          const cleanVal = String(v).replace(/[^\x00-\x7F]/g, '').trim().substring(0, 255);
+          if (cleanKey) sanitizedNotes[cleanKey] = cleanVal;
+        }
+      }
+    }
+    sanitizedNotes.userId = req.user ? String(req.user.id) : 'guest';
+
+    const options = {
+      amount: numericAmount,
+      currency: (currency || 'INR').toUpperCase(),
+      receipt: receipt || `rcpt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+      notes: sanitizedNotes,
+    };
+
+    const order = await rzp.orders.create(options);
+
+    return res.status(200).json({
+      success: true,
+      order_id: order.id,
+      id: order.id,
+      amount: order.amount,
+      currency: order.currency,
+      receipt: order.receipt,
+      key_id: keyId,
+    });
+  } catch (err) {
+    console.error('Razorpay Create Order Error:', err);
+    if (
+      err.statusCode === 401 ||
+      (err.error && err.error.code === 'BAD_REQUEST_ERROR' && err.error?.description?.toLowerCase().includes('auth'))
+    ) {
+      return res.status(401).json({
+        success: false,
+        message: 'Razorpay authentication failed. Please verify API key and secret.',
+      });
+    }
+    return res.status(500).json({
+      success: false,
+      message: err.error?.description || err.message || 'Failed to create Razorpay order.',
+    });
+  }
+};
+
+app.post('/api/create-order', optionalAuth, handleCreateRazorpayOrder);
+app.post('/api/razorpay/create-order', optionalAuth, handleCreateRazorpayOrder);
+
+// Step 3: Verify Razorpay Payment Signature (POST /api/verify-payment)
+const handleVerifyRazorpayPayment = async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      orderId, // optional link to internal VishLink purchaseId / database record
+    } = req.body;
+
+    // Validate presence of all 3 required fields
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required Razorpay fields: razorpay_order_id, razorpay_payment_id, and razorpay_signature are all required.',
+      });
+    }
+
+    const keySecret = RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      return res.status(500).json({
+        success: false,
+        message: 'Razorpay key secret is not configured on server.',
+      });
+    }
+
+    // Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
+    const bodyPayload = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(bodyPayload)
+      .digest('hex');
+
+    let isMatch = false;
+    try {
+      isMatch = crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'utf8'),
+        Buffer.from(razorpay_signature, 'utf8')
+      );
+    } catch {
+      isMatch = expectedSignature === razorpay_signature;
+    }
+
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Payment verification failed: Signature mismatch.',
+      });
+    }
+
+    // Mark as paid & live if orderId was provided
+    if (orderId) {
+      const updatePayload = {
+        isLive: true,
+        purchaseMode: 'razorpay',
+        paidCredits: 1,
+        razorpayPaymentId: razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+        razorpaySignature: razorpay_signature,
+      };
+
+      await PurchasedWeb.findOneAndUpdate(
+        { $or: [{ purchaseId: orderId }, { _id: mongoose.Types.ObjectId.isValid(orderId) ? orderId : null }] },
+        { $set: updatePayload }
+      );
+      await PermanentPurchasedWeb.findOneAndUpdate(
+        { $or: [{ purchaseId: orderId }, { _id: mongoose.Types.ObjectId.isValid(orderId) ? orderId : null }] },
+        { $set: updatePayload }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Payment verified successfully.',
+      razorpay_payment_id,
+      razorpay_order_id,
+    });
+  } catch (err) {
+    console.error('Razorpay Payment Verification Error:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Error occurred while verifying payment signature.',
+    });
+  }
+};
+
+app.post('/api/verify-payment', optionalAuth, handleVerifyRazorpayPayment);
+app.post('/api/razorpay/verify-payment', optionalAuth, handleVerifyRazorpayPayment);
+
 // ---------------- ORDERS & PURCHASE ROUTES ---------------- //
 
 // Submit Purchase Order
@@ -561,6 +765,10 @@ app.post(
         themeColor,
         isTemporary,
         totalPrice,
+        purchaseMode = 'upi',
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature,
       } = req.body;
 
       if (!senderName || !senderName.trim()) {
@@ -667,7 +875,9 @@ app.post(
       }
 
       const isFreeLink = costAmount === 0;
-      const isLiveStatus = isFreeLink; // Free links are auto live, paid links require Admin approval (isLive = false)
+      const isRazorpayVerified = purchaseMode === 'razorpay' && Boolean(razorpayPaymentId);
+      // Free links or verified Razorpay orders are instantly live!
+      const isLiveStatus = isFreeLink || isRazorpayVerified;
 
       const orderDataPayload = {
         purchaseId,
@@ -676,8 +886,11 @@ app.post(
         sender: senderName.trim(),
         receiver: receiverName.trim(),
         price: costAmount,
-        purchaseMode: 'upi',
-        paidCredits: 0,
+        purchaseMode: isRazorpayVerified ? 'razorpay' : (purchaseMode || 'upi'),
+        paidCredits: isRazorpayVerified ? 1 : 0,
+        razorpayPaymentId: razorpayPaymentId || '',
+        razorpayOrderId: razorpayOrderId || '',
+        razorpaySignature: razorpaySignature || '',
         images: uploadedImageObjs,
         paymentProofUrl: paymentProofObj,
         specialMsg: [specialMessage.trim()],
@@ -1310,6 +1523,14 @@ app.get('/api/chat/history', optionalAuth, async (req, res) => {
 
     if (req.user) {
       userChat = await Chat.findOne({ user: req.user.id, chatMode: requestedMode });
+      // Fallback: Link guest session chat if user logged in
+      if (!userChat && sessionId) {
+        userChat = await Chat.findOne({ sessionId, chatMode: requestedMode });
+        if (userChat && !userChat.user) {
+          userChat.user = req.user.id;
+          await userChat.save();
+        }
+      }
     } else if (sessionId) {
       userChat = await Chat.findOne({ sessionId, chatMode: requestedMode });
     }
@@ -1342,6 +1563,12 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
 
     if (req.user) {
       userChat = await Chat.findOne({ user: req.user.id, chatMode: mode });
+      if (!userChat && sessionId) {
+        userChat = await Chat.findOne({ sessionId, chatMode: mode });
+        if (userChat) {
+          userChat.user = req.user.id;
+        }
+      }
       if (!userChat) {
         userChat = new Chat({ user: req.user.id, sessionId, chatMode: mode, messages: [] });
       }
@@ -1355,6 +1582,7 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
     userChat.chatMode = mode;
     const cleanUserText = message.trim();
     userChat.messages.push({
+      sender: req.user ? req.user.id : undefined,
       senderRole: 'user',
       text: cleanUserText,
       status: mode === 'admin' ? 'delivered' : 'read',
@@ -1372,7 +1600,7 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
         type: 'LIVE_CHAT_MESSAGE',
         title: 'New Live Support Message',
         message: `${userNameStr}: "${cleanUserText}"`,
-        data: { chatId: userChat._id, userId: req.user ? req.user.id : null },
+        details: { chatId: userChat._id, userId: req.user ? req.user.id : null },
       });
 
       return res.json({
@@ -1406,10 +1634,22 @@ app.post('/api/chat', optionalAuth, async (req, res) => {
   }
 });
 
-// Admin: Get All Customer Chat Threads (ONLY Live Admin Support threads)
+// Admin: Get All Customer Chat Threads (Supports filtering by mode)
 app.get('/api/admin/chats', authenticateToken, adminOnly, async (req, res) => {
   try {
-    const rawChats = await Chat.find({ chatMode: 'admin' })
+    const { mode } = req.query;
+    let query = { 'messages.0': { $exists: true } };
+
+    if (mode === 'admin') {
+      query = {
+        'messages.0': { $exists: true },
+        $or: [{ chatMode: 'admin' }, { chatMode: { $exists: false } }],
+      };
+    } else if (mode === 'bot') {
+      query = { 'messages.0': { $exists: true }, chatMode: 'bot' };
+    }
+
+    const rawChats = await Chat.find(query)
       .populate('user', 'username email avatarUrl role')
       .sort({ lastMessageAt: -1 })
       .lean();
@@ -1426,7 +1666,7 @@ app.get('/api/admin/chats', authenticateToken, adminOnly, async (req, res) => {
       lastMessage: c.lastMessage || '',
       lastMessageAt: c.lastMessageAt || c.updatedAt || new Date(),
       unreadByAdmin: Boolean(c.unreadByAdmin),
-      chatMode: 'admin',
+      chatMode: c.chatMode || 'admin',
     }));
 
     res.json({ success: true, chats });
@@ -1453,6 +1693,7 @@ app.post('/api/admin/chats/:chatId/reply', authenticateToken, adminOnly, async (
 
     const cleanReply = replyText.trim();
     chatDoc.messages.push({
+      sender: req.user.id,
       senderRole: 'admin',
       text: cleanReply,
       status: 'read',
@@ -1466,11 +1707,85 @@ app.post('/api/admin/chats/:chatId/reply', authenticateToken, adminOnly, async (
     chatDoc.lastMessage = `[Admin]: ${cleanReply}`;
     chatDoc.lastMessageAt = new Date();
     chatDoc.unreadByAdmin = false;
+    chatDoc.chatMode = 'admin'; // Always ensure thread is in admin mode once admin replies
     await chatDoc.save();
 
-    res.json({ success: true, message: 'Reply sent successfully!', chat: chatDoc });
+    await chatDoc.populate('user', 'username email avatarUrl role');
+
+    const formattedChat = {
+      _id: String(chatDoc._id),
+      user: chatDoc.user || {
+        _id: chatDoc.sessionId || 'guest',
+        username: chatDoc.sessionId ? `Guest (${chatDoc.sessionId.slice(-6)})` : 'Anonymous Guest',
+        email: 'Guest User',
+        avatarUrl: '',
+      },
+      messages: chatDoc.messages || [],
+      lastMessage: chatDoc.lastMessage || '',
+      lastMessageAt: chatDoc.lastMessageAt || new Date(),
+      unreadByAdmin: false,
+      chatMode: chatDoc.chatMode || 'admin',
+    };
+
+    res.json({ success: true, message: 'Reply sent successfully!', chat: formattedChat });
   } catch (err) {
     console.error('Admin send reply error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Admin: Start / Open chat thread with specific user
+app.post('/api/admin/chats/start', authenticateToken, adminOnly, async (req, res) => {
+  try {
+    const { userId, initialMessage } = req.body;
+    if (!userId) {
+      return res.status(400).json({ success: false, message: 'User ID is required.' });
+    }
+
+    let chatDoc = await Chat.findOne({ user: userId, chatMode: 'admin' });
+    if (!chatDoc) {
+      chatDoc = new Chat({
+        user: userId,
+        chatMode: 'admin',
+        messages: [],
+        lastMessage: 'Chat opened by Admin',
+        lastMessageAt: new Date(),
+        unreadByAdmin: false,
+      });
+    }
+
+    if (initialMessage && initialMessage.trim()) {
+      const cleanText = initialMessage.trim();
+      chatDoc.messages.push({
+        sender: req.user.id,
+        senderRole: 'admin',
+        text: cleanText,
+        status: 'read',
+      });
+      chatDoc.lastMessage = `[Admin]: ${cleanText}`;
+      chatDoc.lastMessageAt = new Date();
+    }
+
+    await chatDoc.save();
+    await chatDoc.populate('user', 'username email avatarUrl role');
+
+    const formattedChat = {
+      _id: String(chatDoc._id),
+      user: chatDoc.user || {
+        _id: String(userId),
+        username: 'User',
+        email: '',
+      },
+      messages: chatDoc.messages || [],
+      lastMessage: chatDoc.lastMessage || '',
+      lastMessageAt: chatDoc.lastMessageAt || new Date(),
+      unreadByAdmin: false,
+      chatMode: 'admin',
+    };
+
+    res.json({ success: true, chat: formattedChat });
+  } catch (err) {
+    console.error('Admin start chat error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

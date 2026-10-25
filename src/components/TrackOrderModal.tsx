@@ -58,7 +58,7 @@ export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
             </div>
             <div>
               <h2 className="font-serif text-xl font-bold text-slate-900">Find My Wishing Link</h2>
-              <p className="text-xs text-slate-500">Search by Phone Number or Order ID</p>
+              <p className="text-xs text-slate-500">Search by Order ID or Recipient Name</p>
             </div>
           </div>
           <button
@@ -72,7 +72,7 @@ export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
         {/* Search Input */}
         <form onSubmit={handleSearch} className="space-y-3">
           <label className="block text-xs font-bold text-slate-800">
-            Enter Order ID or Mobile Number
+            Enter Order ID or Recipient Name
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -80,7 +80,7 @@ export const TrackOrderModal: React.FC<TrackOrderModalProps> = ({
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="e.g. VL-892410 or 9876543210"
+                placeholder="e.g. VL-892410"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-[#e15b70]"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />

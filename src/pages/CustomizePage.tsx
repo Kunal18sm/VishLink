@@ -26,6 +26,7 @@ import {
 import { TemplateItem, PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
 import { LoadingOverlay } from '../components/LoadingOverlay';
+import { launchRazorpayCheckout } from '../utils/razorpay';
 
 
 interface CustomizePageProps {
@@ -55,6 +56,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'manual_upi'>('razorpay');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -136,6 +138,121 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
       template.previewUrl ||
       `https://all-sub-websites.onrender.com/wish/${template.id}`;
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleRazorpayCheckout = async () => {
+    setErrorMsg('');
+
+    if (!receiverName.trim()) {
+      setErrorMsg("Please enter Recipient's Name.");
+      const el = document.getElementById('recipient-name-input');
+      el?.focus();
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (!senderName.trim()) {
+      setErrorMsg("Please enter Your Name.");
+      const el = document.getElementById('sender-name-input');
+      el?.focus();
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (!specialMessage.trim()) {
+      setErrorMsg('Please enter a Wish Message.');
+      const el = document.getElementById('special-message-input');
+      el?.focus();
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    if (requiredPhotosCount > 0 && selectedFiles.length < requiredPhotosCount) {
+      setErrorMsg(`Please upload ${requiredPhotosCount} photo(s) required for this template.`);
+      const el = document.getElementById('photo-upload-section');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      // 1. Launch Razorpay Standard Checkout Modal
+      const paymentResponse = await launchRazorpayCheckout({
+        amountInPaise: Math.round(totalPrice * 100),
+        currency: 'INR',
+        name: 'VishLink',
+        description: `Wishing Link for ${receiverName.trim()}`,
+        prefill: {
+          name: senderName.trim(),
+        },
+        notes: {
+          templateTitle: template.title,
+          isTemporary: isTemporary ? 'true' : 'false',
+          receiverName: receiverName.trim(),
+        },
+      });
+
+      // 2. Submit order to server with verified Razorpay details
+      const formData = new FormData();
+      formData.append('templateId', template.id);
+      formData.append('webName', template.title);
+      formData.append('senderName', senderName.trim());
+      formData.append('receiverName', receiverName.trim());
+      formData.append('specialMessage', specialMessage.trim());
+      formData.append('musicTrack', musicTrack);
+      formData.append('themeColor', themeColor);
+      formData.append('isTemporary', isTemporary ? 'true' : 'false');
+      formData.append('purchaseMode', 'razorpay');
+      formData.append('totalPrice', String(totalPrice));
+      formData.append('razorpayPaymentId', paymentResponse.razorpay_payment_id);
+      formData.append('razorpayOrderId', paymentResponse.razorpay_order_id);
+      formData.append('razorpaySignature', paymentResponse.razorpay_signature);
+
+      selectedFiles.forEach((file) => {
+        formData.append('images', file);
+      });
+
+      const token = localStorage.getItem('vishlink_token');
+      const headers: HeadersInit = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Purchase order failed');
+      }
+
+      const purchasedOrder: PurchasedOrder = {
+        id: data.order.id,
+        wishingSlug: data.order.wishingSlug,
+        wishingUrl: data.order.wishingUrl,
+        template,
+        senderName: data.order.senderName,
+        receiverName: data.order.receiverName,
+        specialMessage: data.order.specialMessage,
+        uploadedImages: data.order.uploadedImages,
+        themeColor: data.order.themeColor,
+        totalPrice: data.order.totalPrice,
+        purchaseDate: data.order.purchaseDate,
+        status: data.order.status,
+        musicTrack: data.order.musicTrack,
+      };
+
+      onBuyNow(purchasedOrder);
+    } catch (err: any) {
+      console.error('Razorpay checkout error:', err);
+      if (err.message && !err.message.includes('closed by the user')) {
+        setErrorMsg(err.message || 'Payment or order generation failed');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
@@ -307,6 +424,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       Recipient's Name (To) *
                     </label>
                     <input
+                      id="recipient-name-input"
                       type="text"
                       required
                       value={receiverName}
@@ -320,6 +438,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       Your Name (From) *
                     </label>
                     <input
+                      id="sender-name-input"
                       type="text"
                       required
                       value={senderName}
@@ -336,6 +455,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                   Personalized Wish Message *
                 </label>
                 <textarea
+                  id="special-message-input"
                   rows={3}
                   required
                   value={specialMessage}
@@ -346,7 +466,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
               </div>
 
               {requiredPhotosCount > 0 && (
-                <div>
+                <div id="photo-upload-section">
                   <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-[#e15b70]" />
                     Upload Surprise Photos ({requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''} required *)
@@ -438,48 +558,121 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
 
                 {/* Payment Section (Rendered ONLY if totalPrice > 0) */}
                 {totalPrice > 0 ? (
-                  <div className="rounded-2xl border border-rose-200 bg-slate-50/80 p-5 text-center space-y-4">
-                    <div className="space-y-2">
-                      <p className="text-sm font-bold text-slate-900">
-                        Pay ₹{totalPrice} via UPI App or QR Code:
-                      </p>
-                      <a
-                        href={`upi://pay?pa=yash.97184@ybl&pn=VishLink&am=${totalPrice}&cu=INR&tn=VishLink%20Purchase`}
-                        className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-sm py-3.5 px-4 rounded-xl shadow-md transition cursor-pointer"
+                  <div className="rounded-3xl border border-rose-200/90 bg-white p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">Choose Payment Method</h4>
+                        <p className="text-xs text-slate-500">Pay ₹{totalPrice} to generate your wishing link</p>
+                      </div>
+                      <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        100% Secure
+                      </span>
+                    </div>
+
+                    {/* Method Tabs: Razorpay vs Manual UPI */}
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100/80 rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('razorpay')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          paymentMethod === 'razorpay'
+                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
                       >
-                        <CreditCard className="w-4.5 h-4.5" />
-                        <span>Pay ₹{totalPrice} via UPI</span>
-                      </a>
+                        <CreditCard className="w-3.5 h-3.5 text-[#e15b70]" />
+                        <span>Razorpay Checkout</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('manual_upi')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          paymentMethod === 'manual_upi'
+                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Manual UPI & QR</span>
+                      </button>
                     </div>
 
-                    <div className="pt-2">
-                      <img
-                        src="https://res.cloudinary.com/dcw90tnk1/image/upload/v1768291694/wishLink_dev/gedbuqpryaj7oqo8c3v1.png"
-                        alt="UPI QR Code"
-                        className="mx-auto h-36 w-36 rounded-xl border border-slate-200 shadow-2xs"
-                      />
-                    </div>
+                    {/* Razorpay Option Content */}
+                    {paymentMethod === 'razorpay' ? (
+                      <div className="space-y-3 pt-1">
+                        {errorMsg && (
+                          <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs flex items-center gap-2 text-left font-medium">
+                            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                            <span>{errorMsg}</span>
+                          </div>
+                        )}
 
-                    <div className="pt-2 text-left bg-white p-3.5 rounded-xl border border-slate-200">
-                      <label className="block text-sm font-bold text-slate-800 mb-1.5">
-                        Upload Payment Screenshot
-                      </label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            setPaymentProofFile(e.target.files[0]);
-                          }
-                        }}
-                        className="w-full text-sm text-slate-500 file:mr-2 file:rounded-xl file:border-0 file:bg-rose-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-[#e15b70]"
-                      />
-                      {paymentProofFile && (
-                        <p className="text-sm font-semibold text-emerald-600 mt-1.5">
-                          ✓ Screenshot selected: {paymentProofFile.name}
-                        </p>
-                      )}
-                    </div>
+                        <button
+                          type="button"
+                          onClick={handleRazorpayCheckout}
+                          disabled={loading}
+                          className="w-full inline-flex items-center justify-center gap-2 bg-[#0c2340] hover:bg-[#1a365d] active:scale-[0.99] text-white font-bold text-sm py-3.5 px-6 rounded-2xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>Processing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4 text-sky-400" />
+                              <span>Pay ₹{totalPrice} with Razorpay</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    ) : (
+                      /* Manual UPI Transfer Option */
+                      <div className="space-y-3 pt-1">
+                        <div className="text-center space-y-2">
+                          <p className="text-xs font-bold text-slate-700">
+                            Scan QR Code or pay via UPI App:
+                          </p>
+                          <a
+                            href={`upi://pay?pa=yash.97184@ybl&pn=VishLink&am=${totalPrice}&cu=INR&tn=VishLink%20Purchase`}
+                            className="inline-flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            <span>Open UPI App (₹{totalPrice})</span>
+                          </a>
+                        </div>
+
+                        <div className="pt-1 text-center">
+                          <img
+                            src="https://res.cloudinary.com/dcw90tnk1/image/upload/v1768291694/wishLink_dev/gedbuqpryaj7oqo8c3v1.png"
+                            alt="UPI QR Code"
+                            className="mx-auto h-32 w-32 rounded-xl border border-slate-200 shadow-2xs"
+                          />
+                        </div>
+
+                        <div className="text-left bg-slate-50 p-3 rounded-xl border border-slate-200">
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            Upload Payment Screenshot
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              if (e.target.files && e.target.files[0]) {
+                                setPaymentProofFile(e.target.files[0]);
+                              }
+                            }}
+                            className="w-full text-xs text-slate-500 file:mr-2 file:rounded-xl file:border-0 file:bg-rose-100 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-[#e15b70]"
+                          />
+                          {paymentProofFile && (
+                            <p className="text-xs font-semibold text-emerald-600 mt-1">
+                              ✓ Screenshot selected: {paymentProofFile.name}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* FREE TEMPLATE BANNER (NO PAYMENT DETAILS AT ALL!) */
@@ -495,23 +688,25 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 )}
               </div>
 
-              {/* Action Button */}
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-base font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin" />
-                    <span>Generating Wishing Webpage...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" /> Create Wish Link
-                  </>
-                )}
-              </button>
+              {/* Action Button for Free Plan or Manual UPI fallback */}
+              {(totalPrice === 0 || paymentMethod === 'manual_upi') && (
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-base font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Generating Wishing Webpage...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" /> {totalPrice === 0 ? 'Create Free Wish Link' : 'Submit Manual UPI Order'}
+                    </>
+                  )}
+                </button>
+              )}
 
               {/* Try Free Templates Option */}
               {onExploreFreeTemplates && (

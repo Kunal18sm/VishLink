@@ -37,11 +37,11 @@ export const FaqsPage: React.FC<FaqsPageProps> = ({ onBack, onExploreTemplates }
     },
     {
       q: "Is VishLink free to create digital wishing links?",
-      a: "Yes! VishLink offers 100% Free wishing templates valid for 3 months. You can generate free interactive birthday cake links without any payment. We also offer Lifetime Permanent Access plans for unlimited future playback."
+      a: "Yes! VishLink offers free wishing templates with 3-month hosting. You can generate interactive birthday cake links easily, or choose permanent cloud hosting for long-term access."
     },
     {
-      q: "How long will my wishing website link stay active (Lifetime Validity)?",
-      a: "Every permanent wishing website link created on VishLink comes with 100% Lifetime Link Validity. The recipient can open, re-play, and view their personalized birthday cake or romantic anniversary webpage anytime in the future without link expiration."
+      q: "How long will my wishing website link stay active?",
+      a: "Temporary tier links remain active for 3 months, while permanent tier links are maintained on cloud hosting for long-term access so your recipient can re-visit their celebration page anytime."
     },
     {
       q: "Where do I find or access my purchased wishing links?",

@@ -226,6 +226,7 @@ export default function App() {
         }}
         onNavigateToSection={handleNavigateToSection}
         currentUser={currentUser}
+        currentPage={currentPage}
       />
 
       {/* 3. Dynamic Page View */}

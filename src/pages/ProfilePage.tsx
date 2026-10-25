@@ -23,6 +23,7 @@ import {
   Star,
   Send,
   ShieldCheck,
+  Eye,
 } from 'lucide-react';
 import { PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
@@ -81,6 +82,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
 
   // Edit Wish Link State
   const [editingOrder, setEditingOrder] = useState<any | null>(null);
+  const [viewingDetailsOrder, setViewingDetailsOrder] = useState<any | null>(null);
   const [editReceiverName, setEditReceiverName] = useState('');
   const [editSenderName, setEditSenderName] = useState('');
   const [editSpecialMessage, setEditSpecialMessage] = useState('');
@@ -281,10 +283,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
             <div className="space-y-3 text-center sm:text-left flex-1">
               <div>
                 <h1 className="font-serif text-2xl sm:text-3xl font-bold text-white">
-                  {userInfo?.username || 'Kunal Vishu'}
+                  {userInfo?.username || userInfo?.name || 'VishLink User'}
                 </h1>
                 <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-                  {userInfo?.email || 'kunal.81789vishu@gmail.com'}
+                  {userInfo?.email || 'Logged in via VishLink'}
                 </p>
               </div>
 
@@ -376,134 +378,92 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {filteredOrders.map((order, idx) => (
                 <div
                   key={`${profileTab}-${order.id || order.wishingUrl || idx}-${idx}`}
-                  className="bg-slate-50/70 rounded-2xl border border-slate-200 p-5 space-y-4 hover:border-rose-200 transition-all"
+                  className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs hover:border-rose-200 transition-all space-y-3"
                 >
-
-                  {/* Top Bar: Date, Plan Badge, Status */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200/80 text-xs">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-slate-500 font-semibold">{order.purchaseDate}</span>
-                      <span className="text-slate-300">•</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          (order as any).isTemporary === false
-                            ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                            : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                        }`}
-                      >
-                        {(order as any).isTemporary === false ? '💎 Permanent (Lifetime)' : '⏳ Temporary (3 Months)'}
-                      </span>
-
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-slate-900 text-xs">
+                  {/* Top Row: Title + Date / Price */}
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className="font-bold text-slate-900 text-sm sm:text-base truncate">
+                      {(order as any).templateName || (order as any).webName || order.template?.title || 'Wishing Website'}
+                    </h4>
+                    <div className="flex items-center gap-2 text-xs font-semibold shrink-0">
+                      <span className="text-slate-800 font-bold">
                         {order.totalPrice === 0 ? 'FREE' : `₹${order.totalPrice}`}
                       </span>
-                      {(order as any).isFakePaymentProof ? (
-                        <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-red-200" title={(order as any).adminFakePaymentNote || 'Fake payment proof rejected by admin'}>
-                          <AlertCircle className="w-3 h-3 text-red-600" />
-                          Fake Payment Rejected
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 font-bold px-2.5 py-0.5 rounded-full text-[11px] border border-emerald-200">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          {order.status}
-                        </span>
-                      )}
+                      <span className="text-slate-300">•</span>
+                      <span className="text-slate-400 font-medium">
+                        {order.purchaseDate}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Body Content */}
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                    <div className="md:col-span-4 space-y-1">
-                      <h4 className="font-bold text-slate-900 text-base leading-snug">
-                        {(order as any).templateName || (order as any).webName || order.template?.title || 'Wishing Website'}
-                      </h4>
-                      <div className="flex items-center justify-between text-xs font-semibold pt-0.5">
-                        <span className="text-[#e15b70]">For: {order.receiverName}</span>
-                        <span className="text-slate-500">From: {order.senderName}</span>
-                      </div>
-                    </div>
+                  {/* Compact Link Row with small Copy & Open icons right beside it */}
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 rounded-xl border border-slate-200/80">
+                    <a
+                      href={order.wishingUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs font-mono font-medium text-slate-700 hover:text-[#e15b70] hover:underline truncate flex-1 block"
+                      title="Click to open website"
+                    >
+                      {order.wishingUrl}
+                    </a>
 
-                    {/* Wish URL Box */}
-                    <div className="md:col-span-5 bg-white p-3 rounded-xl border border-slate-200">
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                          Live Wish Link URL
-                        </span>
-                        <a
-                          href={order.wishingUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[10px] font-bold text-rose-600 hover:underline flex items-center gap-1"
-                        >
-                          <span>Open Site</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </div>
-                      <p className="text-xs font-mono font-bold text-[#e15b70] truncate">
-                        {order.wishingUrl}
-                      </p>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="md:col-span-3 flex flex-wrap md:flex-col gap-2">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
+                        type="button"
                         onClick={() => handleCopyLink(order.wishingUrl, order.id)}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2 px-3 rounded-xl transition cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold border border-slate-200 transition cursor-pointer"
+                        title="Copy Link"
                       >
                         {copiedOrderId === order.id ? (
                           <>
-                            <Check className="w-3.5 h-3.5 text-emerald-400" /> Copied!
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            <span className="text-[11px] text-emerald-600">Copied</span>
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3.5 h-3.5" /> Copy Link
+                            <Copy className="w-3 h-3 text-slate-500" />
+                            <span className="text-[11px]">Copy</span>
                           </>
                         )}
                       </button>
 
-                      <button
-                        onClick={() => handleWhatsAppShare(order)}
-                        className="flex-1 flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-xl transition cursor-pointer"
+                      <a
+                        href={order.wishingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1 rounded-lg text-[#e15b70] hover:bg-rose-50 transition"
+                        title="Open Website"
                       >
-                        <Share2 className="w-3.5 h-3.5" /> WhatsApp
-                      </button>
-
-                      {profileTab === 'active' && (
-                        <button
-                          onClick={() => handleOpenEditModal(order)}
-                          className="flex-1 flex items-center justify-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-[#e15b70] text-xs font-bold py-2 px-3 rounded-xl border border-rose-200 transition cursor-pointer"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" /> Edit Details
-                        </button>
-                      )}
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
                     </div>
                   </div>
 
+                  {/* Action Buttons Row */}
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleWhatsAppShare(order)}
+                      className="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold py-1.5 px-3 rounded-xl shadow-2xs transition cursor-pointer"
+                    >
+                      <Share2 className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </button>
 
-
-                  {/* Uploaded Images Gallery Strip if present */}
-                  {order.uploadedImages && order.uploadedImages.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200/60 flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-slate-500">Uploaded Photos:</span>
-                      <div className="flex gap-2 overflow-x-auto">
-                        {order.uploadedImages.map((img, idx) => (
-                          <img
-                            key={idx}
-                            src={img}
-                            alt=""
-                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0"
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setViewingDetailsOrder(order)}
+                      className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-1.5 px-3 rounded-xl transition cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Full Details</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -616,6 +576,175 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Full Details Modal Popup */}
+      {viewingDetailsOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl p-6 border border-slate-100 space-y-5 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div>
+                <span className="text-[10px] font-bold text-[#e15b70] uppercase tracking-wider">
+                  Wishing Website Details
+                </span>
+                <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                  {(viewingDetailsOrder as any).templateName || (viewingDetailsOrder as any).webName || 'Wishing Website'}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingDetailsOrder(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Live Link URL Box */}
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2.5">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                Live Wish Link URL
+              </span>
+              <a
+                href={viewingDetailsOrder.wishingUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-mono font-bold text-[#e15b70] hover:underline break-all bg-white p-2.5 rounded-xl border border-slate-200 block transition"
+                title="Click to open website"
+              >
+                {viewingDetailsOrder.wishingUrl}
+              </a>
+              <div className="flex items-center gap-2 pt-0.5">
+                <a
+                  href={viewingDetailsOrder.wishingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-[#e15b70] hover:bg-[#c94358] text-white text-xs font-bold py-2.5 px-3 rounded-xl shadow-xs transition"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Website</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => handleCopyLink(viewingDetailsOrder.wishingUrl, viewingDetailsOrder.id)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 px-3 rounded-xl transition cursor-pointer"
+                >
+                  {copiedOrderId === viewingDetailsOrder.id ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy Link</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Formatted Information Grid */}
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 font-semibold block text-[10px]">Recipient (To)</span>
+                <span className="font-bold text-slate-900 text-sm mt-0.5 block">{viewingDetailsOrder.receiverName || '—'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 font-semibold block text-[10px]">Sender (From)</span>
+                <span className="font-bold text-slate-900 text-sm mt-0.5 block">{viewingDetailsOrder.senderName || '—'}</span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 font-semibold block text-[10px]">Plan Type</span>
+                <span className="font-bold text-slate-900 mt-0.5 block">
+                  {(viewingDetailsOrder as any).isTemporary === false ? '💎 Lifetime (Permanent)' : '⏳ 3 Months (Temporary)'}
+                </span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                <span className="text-slate-400 font-semibold block text-[10px]">Status & Amount</span>
+                <span className="font-bold text-emerald-600 mt-0.5 block">
+                  {viewingDetailsOrder.status || 'Active & Ready'} • {viewingDetailsOrder.totalPrice === 0 ? 'FREE' : `₹${viewingDetailsOrder.totalPrice}`}
+                </span>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 col-span-2">
+                <span className="text-slate-400 font-semibold block text-[10px]">Order Date & Time</span>
+                <span className="font-bold text-slate-800 mt-0.5 block">
+                  {viewingDetailsOrder.purchaseDate || 'Recently generated'}
+                </span>
+              </div>
+            </div>
+
+            {/* Special Wish Message */}
+            {viewingDetailsOrder.specialMessage && (
+              <div className="p-3.5 bg-rose-50/60 rounded-2xl border border-rose-100 space-y-1">
+                <span className="text-[10px] font-bold text-[#e15b70] uppercase tracking-wider block">
+                  Personalized Wish Message:
+                </span>
+                <p className="text-xs text-slate-700 italic leading-relaxed">
+                  &ldquo;{viewingDetailsOrder.specialMessage}&rdquo;
+                </p>
+              </div>
+            )}
+
+            {/* Uploaded Photos Gallery */}
+            {viewingDetailsOrder.uploadedImages && viewingDetailsOrder.uploadedImages.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-bold text-slate-800 block">
+                  Uploaded Photos ({viewingDetailsOrder.uploadedImages.length})
+                </span>
+                <div className="flex gap-2.5 overflow-x-auto pb-1">
+                  {viewingDetailsOrder.uploadedImages.map((img: string, i: number) => (
+                    <a
+                      key={i}
+                      href={img}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden border border-slate-200 shadow-2xs hover:scale-105 transition group"
+                    >
+                      <img src={img} alt="" className="h-full w-full object-cover" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="flex flex-wrap items-center justify-between pt-3 border-t border-slate-100 gap-2">
+              {profileTab === 'active' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = viewingDetailsOrder;
+                    setViewingDetailsOrder(null);
+                    handleOpenEditModal(target);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-[#e15b70] bg-rose-50 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Details</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleWhatsAppShare(viewingDetailsOrder)}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition cursor-pointer"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span>Share WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setViewingDetailsOrder(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition cursor-pointer ml-auto"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

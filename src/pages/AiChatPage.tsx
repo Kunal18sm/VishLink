@@ -24,6 +24,15 @@ interface AiChatPageProps {
   onBack: () => void;
 }
 
+const getChatSessionId = (): string => {
+  let sId = localStorage.getItem('vishlink_chat_session_id');
+  if (!sId) {
+    sId = 'session_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+    localStorage.setItem('vishlink_chat_session_id', sId);
+  }
+  return sId;
+};
+
 export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
   const [chatMode, setChatMode] = useState<'bot' | 'admin'>('bot');
   const [botMessages, setBotMessages] = useState<Message[]>([
@@ -53,11 +62,14 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
 
   const fetchChatHistory = async (mode: 'bot' | 'admin') => {
     try {
+      const sId = getChatSessionId();
       const token = localStorage.getItem('vishlink_token');
-      const headers: Record<string, string> = {};
+      const headers: Record<string, string> = {
+        'x-session-id': sId,
+      };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const res = await fetch(`/api/chat/history?chatMode=${mode}`, { headers });
+      const res = await fetch(`/api/chat/history?chatMode=${mode}&sessionId=${encodeURIComponent(sId)}`, { headers });
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.messages)) {
         const formatted: Message[] = data.messages.map((m: any, idx: number) => ({
@@ -76,6 +88,9 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
           }
         } else {
           setAdminMessages(formatted);
+          if (formatted.length > 0) {
+            setTimeout(scrollToBottom, 50);
+          }
         }
       }
     } catch (e) {
@@ -129,8 +144,12 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
         text: m.text,
       }));
 
+      const sId = getChatSessionId();
       const token = localStorage.getItem('vishlink_token');
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-session-id': sId,
+      };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const res = await fetch('/api/chat', {
@@ -140,6 +159,7 @@ export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
           message: query,
           conversationHistory: history,
           chatMode,
+          sessionId: sId,
         }),
       });
 

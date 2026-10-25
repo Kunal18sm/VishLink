@@ -117,7 +117,12 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
                   </div>
                   <div>
                     <span className="font-bold text-slate-900 block">Email Us</span>
-                    <span className="text-slate-500">support@vishlink.app</span>
+                    <a
+                      href="mailto:wishlink1806@gmail.com"
+                      className="text-slate-600 hover:text-[#e15b70] font-semibold transition"
+                    >
+                      wishlink1806@gmail.com
+                    </a>
                     <p className="text-[11px] text-slate-400 mt-0.5">Responses within 24 hours</p>
                   </div>
                 </div>
@@ -139,8 +144,8 @@ export const ContactPage: React.FC<ContactPageProps> = ({ onBack }) => {
                     <MapPin className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="font-bold text-slate-900 block">Headquarters</span>
-                    <span className="text-slate-500">VishLink Digital Studios, India</span>
+                    <span className="font-bold text-slate-900 block">Service Area</span>
+                    <span className="text-slate-500">Online Digital Service across India</span>
                   </div>
                 </div>
               </div>

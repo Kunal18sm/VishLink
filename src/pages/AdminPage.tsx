@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ShieldCheck,
   Package,
@@ -107,6 +107,24 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
   const [selectedChat, setSelectedChat] = useState<any | null>(null);
   const [adminReplyInput, setAdminReplyInput] = useState('');
   const [replyLoading, setReplyLoading] = useState(false);
+  const [chatFilter, setChatFilter] = useState<'all' | 'admin' | 'bot' | 'unread'>('all');
+  const [chatSearch, setChatSearch] = useState('');
+  const selectedChatRef = useRef<any>(null);
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
+
+  const scrollToChatBottom = () => {
+    chatMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (selectedChat?.messages?.length) {
+      setTimeout(scrollToChatBottom, 60);
+    }
+  }, [selectedChat?._id, selectedChat?.messages?.length]);
 
   // Users State with 20-per-batch Pagination
   const [users, setUsers] = useState<any[]>([]);
@@ -488,9 +506,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       const data = await res.json();
       if (res.ok && data.success) {
         setCustomerChats(data.chats || []);
-        if (selectedChat) {
-          const updated = (data.chats || []).find((c: any) => c._id === selectedChat._id);
-          if (updated) setSelectedChat(updated);
+        const currentActive = selectedChatRef.current;
+        if (currentActive) {
+          const updated = (data.chats || []).find((c: any) => c._id === currentActive._id);
+          if (updated) {
+            setSelectedChat(updated);
+          }
         }
       }
     } catch (err) {
@@ -500,10 +521,35 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
 
   const handleSendAdminReply = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!selectedChat || !adminReplyInput.trim()) return;
+    if (!selectedChat || !adminReplyInput.trim() || replyLoading) return;
 
+    const replyText = adminReplyInput.trim();
     setReplyLoading(true);
     const token = localStorage.getItem('vishlink_token');
+
+    // 1. Optimistic update: message immediately appears in chat window!
+    const optimisticMsg = {
+      _id: `temp_${Date.now()}`,
+      senderRole: 'admin',
+      text: replyText,
+      createdAt: new Date().toISOString(),
+      status: 'read',
+    };
+
+    const updatedSelectedChat = {
+      ...selectedChat,
+      messages: [...(selectedChat.messages || []), optimisticMsg],
+      lastMessage: `[Admin]: ${replyText}`,
+      lastMessageAt: new Date().toISOString(),
+      unreadByAdmin: false,
+    };
+
+    setSelectedChat(updatedSelectedChat);
+    setCustomerChats((prev) =>
+      prev.map((c) => (c._id === selectedChat._id ? updatedSelectedChat : c))
+    );
+    setAdminReplyInput('');
+    setTimeout(scrollToChatBottom, 40);
 
     try {
       const res = await fetch(`/api/admin/chats/${selectedChat._id}/reply`, {
@@ -512,20 +558,51 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ replyText: adminReplyInput.trim() }),
+        body: JSON.stringify({ replyText }),
       });
 
       const data = await res.json();
-      if (res.ok && data.success) {
-        setAdminReplyInput('');
-        fetchCustomerChats();
+      if (res.ok && data.success && data.chat) {
+        setSelectedChat(data.chat);
+        setCustomerChats((prev) =>
+          prev.map((c) => (c._id === data.chat._id ? data.chat : c))
+        );
+        setTimeout(scrollToChatBottom, 50);
       } else {
         alert(data.message || 'Failed to send reply.');
+        fetchCustomerChats();
       }
     } catch (err: any) {
       alert(err.message || 'Network error sending reply.');
+      fetchCustomerChats();
     } finally {
       setReplyLoading(false);
+    }
+  };
+
+  const handleStartChatWithUser = async (userId: string) => {
+    const token = localStorage.getItem('vishlink_token');
+    if (!token) return;
+
+    try {
+      const res = await fetch('/api/admin/chats/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success && data.chat) {
+        setSelectedChat(data.chat);
+        setActiveTab('chats');
+        fetchCustomerChats();
+      } else {
+        alert(data.message || 'Could not initiate chat with user.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error opening chat.');
     }
   };
 
@@ -809,48 +886,51 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
       <div className="max-w-7xl mx-auto px-4 space-y-6">
         
         {/* Top Admin Control Header Bar */}
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="p-2.5 rounded-2xl bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors cursor-pointer border border-slate-700"
-              title="Return to VishLink Home"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">
-                  Admin Control Panel
-                </span>
-                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-4 sm:p-6 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={onBack}
+                className="p-2 sm:p-2.5 rounded-2xl bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors cursor-pointer border border-slate-700 shrink-0"
+                title="Return to VishLink Home"
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] uppercase tracking-widest text-rose-400 font-bold bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                    Admin Control Panel
+                  </span>
+                  <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                </div>
+                <h1 className="text-lg sm:text-2xl font-extrabold text-white mt-0.5 sm:mt-1 flex items-center gap-2">
+                  VishLink Master Control
+                </h1>
               </div>
-              <h1 className="text-xl sm:text-2xl font-extrabold text-white mt-1 flex items-center gap-2">
-                VishLink Master Control
-              </h1>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={() => {
                 fetchAdminData();
                 fetchTemplates();
                 fetchInitialUsers();
                 fetchFeedbacks();
+                fetchCustomerChats();
               }}
-              className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition cursor-pointer"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3 py-2 rounded-xl border border-slate-700 transition cursor-pointer"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Data</span>
+              <span>Refresh</span>
             </button>
 
             <button
               onClick={() => setActiveTab('add-template')}
-              className="inline-flex items-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#c94358] hover:opacity-95 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md transition cursor-pointer"
+              className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#e15b70] to-[#c94358] hover:opacity-95 text-white text-xs font-bold px-3 sm:px-4 py-2 rounded-xl shadow-md transition cursor-pointer"
             >
               <Plus className="w-4 h-4" />
-              <span>Add New Template</span>
+              <span>Add Template</span>
             </button>
           </div>
         </div>
@@ -867,7 +947,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
         )}
 
         {/* Primary Navigation Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-bold text-slate-400">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-800 text-xs font-bold text-slate-400 scrollbar-none no-scrollbar">
           <button
             onClick={() => setActiveTab('dashboard')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
@@ -1590,7 +1670,16 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                           </span>
                         </td>
 
-                        <td className="py-3.5 px-4 text-right space-x-2">
+                        <td className="py-3.5 px-4 text-right space-x-2 whitespace-nowrap">
+                          <button
+                            onClick={() => handleStartChatWithUser(u._id)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-[11px] font-bold transition cursor-pointer inline-flex items-center gap-1"
+                            title="Chat with user"
+                          >
+                            <MessageSquare className="w-3 h-3" />
+                            <span>Chat</span>
+                          </button>
+
                           <button
                             onClick={() => handleToggleUserRole(u._id)}
                             className="px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[11px] font-bold transition cursor-pointer"
@@ -2063,9 +2152,9 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
         {/* ---------------- 6. DEDICATED LIVE CUSTOMER SUPPORT CHATS PAGE ---------------- */}
         {activeTab === 'chats' && (
           <div className="space-y-6 animate-in fade-in">
-            <div className="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-slate-900/80 p-4 sm:p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                   <Headphones className="w-5 h-5 text-amber-400" />
                   Live Customer Support Helpdesk ({(Array.isArray(customerChats) ? customerChats.length : 0)})
                 </h2>
@@ -2076,7 +2165,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
 
               <button
                 onClick={fetchCustomerChats}
-                className="inline-flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition cursor-pointer shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition cursor-pointer shrink-0"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
                 <span>Refresh Chats</span>
@@ -2084,108 +2173,207 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
-              {/* Left Column: Thread List */}
-              <div className="lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-4 space-y-3 max-h-[650px] overflow-y-auto">
-                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 flex items-center justify-between">
-                  <span>Active Threads</span>
+              {/* Left Column: Thread List (Hidden on mobile when a chat is selected) */}
+              <div className={`${selectedChat ? 'hidden lg:flex' : 'flex'} flex-col lg:col-span-4 bg-slate-900/90 rounded-2xl border border-slate-800 p-4 space-y-3 h-[650px] max-h-[82vh]`}>
+                <div className="flex items-center justify-between gap-2 px-1 shrink-0">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>Threads</span>
+                    <span className="bg-slate-800 text-slate-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-700">
+                      {customerChats.length}
+                    </span>
+                  </h3>
                   <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
                     {customerChats.filter((c) => c.unreadByAdmin).length} Unread
                   </span>
-                </h3>
+                </div>
 
-                {(!Array.isArray(customerChats) || customerChats.length === 0) ? (
-                  <div className="p-8 text-center text-xs text-slate-500 space-y-2">
-                    <Headphones className="w-8 h-8 text-slate-600 mx-auto" />
-                    <p className="font-bold text-slate-400">No active customer chats</p>
-                    <p className="text-[11px]">When users send messages in Live Admin mode, they will appear here.</p>
-                  </div>
-                ) : (
-                  customerChats.map((c) => {
-                    const isSelected = selectedChat?._id === c._id;
-                    const uName = c.user?.username || c.user?.email || 'Guest Visitor';
-                    const hasUnread = c.unreadByAdmin;
+                {/* Filter Chips */}
+                <div className="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-xl border border-slate-800/80 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setChatFilter('all')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition ${
+                      chatFilter === 'all'
+                        ? 'bg-rose-500 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All ({customerChats.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChatFilter('unread')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition ${
+                      chatFilter === 'unread'
+                        ? 'bg-amber-500 text-slate-950 font-extrabold shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Unread ({customerChats.filter((c) => c.unreadByAdmin).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChatFilter('admin')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-[10px] font-bold transition ${
+                      chatFilter === 'admin'
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Live
+                  </button>
+                </div>
 
-                    return (
-                      <div
-                        key={c._id}
-                        onClick={() => {
-                          setSelectedChat(c);
-                          c.unreadByAdmin = false;
-                        }}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-1.5 relative ${
-                          isSelected
-                            ? 'bg-rose-500/10 border-rose-500/50 text-white shadow-md'
-                            : hasUnread
-                            ? 'bg-amber-500/10 border-amber-500/40 text-slate-200'
-                            : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 truncate">
-                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-rose-400 shrink-0">
-                              {uName.charAt(0).toUpperCase()}
+                {/* Search Bar */}
+                <div className="relative shrink-0">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={chatSearch}
+                    onChange={(e) => setChatSearch(e.target.value)}
+                    placeholder="Search thread or user..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                  />
+                  {chatSearch && (
+                    <button
+                      onClick={() => setChatSearch('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Thread Scroll List */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                  {(() => {
+                    const filtered = (customerChats || []).filter((c) => {
+                      if (chatFilter === 'unread' && !c.unreadByAdmin) return false;
+                      if (chatFilter === 'admin' && c.chatMode !== 'admin') return false;
+                      if (chatFilter === 'bot' && c.chatMode !== 'bot') return false;
+                      if (chatSearch.trim()) {
+                        const q = chatSearch.toLowerCase();
+                        const uName = (c.user?.username || '').toLowerCase();
+                        const uEmail = (c.user?.email || '').toLowerCase();
+                        const last = (c.lastMessage || '').toLowerCase();
+                        return uName.includes(q) || uEmail.includes(q) || last.includes(q);
+                      }
+                      return true;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="p-8 text-center text-xs text-slate-500 space-y-2">
+                          <Headphones className="w-8 h-8 text-slate-600 mx-auto" />
+                          <p className="font-bold text-slate-400">No matching chats found</p>
+                          <p className="text-[11px]">When users send messages in Live Admin mode, they will appear here.</p>
+                        </div>
+                      );
+                    }
+
+                    return filtered.map((c) => {
+                      const isSelected = selectedChat?._id === c._id;
+                      const uName = c.user?.username || c.user?.email || 'Guest Visitor';
+                      const hasUnread = c.unreadByAdmin;
+                      const isLiveAdmin = c.chatMode === 'admin';
+
+                      return (
+                        <div
+                          key={c._id}
+                          onClick={() => {
+                            setSelectedChat(c);
+                            c.unreadByAdmin = false;
+                          }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer space-y-1.5 relative ${
+                            isSelected
+                              ? 'bg-rose-500/10 border-rose-500/50 text-white shadow-md'
+                              : hasUnread
+                              ? 'bg-amber-500/10 border-amber-500/40 text-slate-200'
+                              : 'bg-slate-950/60 border-slate-800/80 text-slate-300 hover:border-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 truncate">
+                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-xs text-rose-400 shrink-0">
+                                {uName.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="truncate">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="font-bold text-xs truncate text-white">{uName}</p>
+                                  {isLiveAdmin && (
+                                    <span className="text-[9px] bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded font-semibold border border-purple-500/30 shrink-0">
+                                      Live
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-400 truncate">{c.user?.email || 'Guest User'}</p>
+                              </div>
                             </div>
-                            <div className="truncate">
-                              <p className="font-bold text-xs truncate text-white">{uName}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{c.user?.email || 'Guest User'}</p>
-                            </div>
+
+                            {hasUnread && (
+                              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" title="New Message" />
+                            )}
                           </div>
 
-                          {hasUnread && (
-                            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse shrink-0" title="New Message" />
-                          )}
-                        </div>
+                          <p className="text-xs text-slate-400 line-clamp-1 italic bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/60">
+                            {c.lastMessage || 'No messages yet'}
+                          </p>
 
-                        <p className="text-xs text-slate-400 line-clamp-1 italic bg-slate-900/60 p-1.5 rounded-lg border border-slate-800/60">
-                          {c.lastMessage || 'No messages yet'}
-                        </p>
-
-                        <div className="text-[10px] text-slate-500 flex justify-between items-center pt-1">
-                          <span>{c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteChat(c._id);
-                            }}
-                            className="text-slate-500 hover:text-red-400 p-1 cursor-pointer"
-                            title="Delete Chat Thread"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="text-[10px] text-slate-500 flex justify-between items-center pt-1">
+                            <span>{c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteChat(c._id);
+                              }}
+                              className="text-slate-500 hover:text-red-400 p-1 cursor-pointer"
+                              title="Delete Chat Thread"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })
-                )}
+                      );
+                    });
+                  })()}
+                </div>
               </div>
 
-              {/* Right Column: Chat Box Window */}
-              <div className="lg:col-span-8 bg-slate-900/90 rounded-2xl border border-slate-800 flex flex-col max-h-[650px] overflow-hidden">
+              {/* Right Column: Chat Box Window (On mobile, only shown when selectedChat is active) */}
+              <div className={`${!selectedChat ? 'hidden lg:flex' : 'flex'} flex-col lg:col-span-8 bg-slate-900/90 rounded-2xl border border-slate-800 h-[650px] max-h-[82vh] overflow-hidden`}>
                 {selectedChat ? (
                   <>
                     {/* Active Thread Header */}
-                    <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 p-0.5 shadow-md">
+                    <div className="p-3 sm:p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+                      <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                        {/* Mobile Back Button to Thread List */}
+                        <button
+                          onClick={() => setSelectedChat(null)}
+                          className="lg:hidden p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 cursor-pointer shrink-0"
+                          title="Back to All Threads"
+                        >
+                          <ArrowLeft className="w-4 h-4" />
+                        </button>
+                        <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 p-0.5 shadow-md shrink-0">
                           <div className="w-full h-full rounded-full bg-slate-900 flex items-center justify-center font-bold text-sm text-white">
                             {(selectedChat.user?.username || 'G').charAt(0).toUpperCase()}
                           </div>
                         </div>
-                        <div>
-                          <h3 className="font-bold text-sm text-white">
+                        <div className="truncate">
+                          <h3 className="font-bold text-xs sm:text-sm text-white truncate">
                             {selectedChat.user?.username || selectedChat.user?.email || 'Guest Visitor'}
                           </h3>
-                          <p className="text-xs text-slate-400">{selectedChat.user?.email || 'Live Customer Chat'}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-400 truncate">{selectedChat.user?.email || 'Live Customer Chat'}</p>
                         </div>
                       </div>
 
-                      <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Active Session
+                      <span className="text-[11px] sm:text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20 flex items-center gap-1.5 shrink-0">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> Active
                       </span>
                     </div>
 
                     {/* Message Log */}
-                    <div className="flex-1 p-4 overflow-y-auto space-y-3 bg-slate-950/40">
+                    <div className="flex-1 p-3 sm:p-4 overflow-y-auto space-y-3 bg-slate-950/40">
                       {selectedChat.messages?.map((m: any, idx: number) => {
                         const isUser = m.senderRole === 'user';
                         const isAdmin = m.senderRole === 'admin';
@@ -2196,7 +2384,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                             className={`flex items-start gap-2.5 ${isUser ? '' : 'flex-row-reverse'}`}
                           >
                             <div
-                              className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
+                              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
                                 isUser
                                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                                   : isAdmin
@@ -2208,7 +2396,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                             </div>
 
                             <div
-                              className={`max-w-[80%] p-3 rounded-2xl text-xs space-y-1 shadow-md ${
+                              className={`max-w-[85%] sm:max-w-[80%] p-3 rounded-2xl text-xs space-y-1 shadow-md ${
                                 isUser
                                   ? 'bg-slate-800 text-white border border-slate-700 rounded-tl-none'
                                   : isAdmin
@@ -2227,24 +2415,25 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
                           </div>
                         );
                       })}
+                      <div ref={chatMessagesEndRef} />
                     </div>
 
                     {/* Admin Input Bar */}
-                    <form onSubmit={handleSendAdminReply} className="p-4 bg-slate-950 border-t border-slate-800 flex items-center gap-2">
+                    <form onSubmit={handleSendAdminReply} className="p-3 sm:p-4 bg-slate-950 border-t border-slate-800 flex items-center gap-2 shrink-0">
                       <input
                         type="text"
                         value={adminReplyInput}
                         onChange={(e) => setAdminReplyInput(e.target.value)}
                         placeholder="Type your official reply to this customer..."
-                        className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500"
                       />
                       <button
                         type="submit"
                         disabled={replyLoading || !adminReplyInput.trim()}
-                        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md cursor-pointer transition disabled:opacity-50"
+                        className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold px-3.5 sm:px-4 py-2.5 rounded-xl shadow-md cursor-pointer transition disabled:opacity-50 shrink-0"
                       >
                         <Send className="w-3.5 h-3.5" />
-                        <span>{replyLoading ? 'Sending...' : 'Send Reply'}</span>
+                        <span className="hidden sm:inline">{replyLoading ? 'Sending...' : 'Send Reply'}</span>
                       </button>
                     </form>
                   </>

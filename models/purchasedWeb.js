@@ -27,7 +27,7 @@ const purchasedWebSchema = new mongoose.Schema({
   },
   purchaseMode: {
     type: String,
-    enum: ['upi', 'coins'],
+    enum: ['upi', 'coins', 'razorpay'],
     default: 'upi',
   },
   paidCredits: {

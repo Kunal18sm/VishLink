@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, Sparkles, Heart, Globe, ShieldCheck, Zap, Users, Gift } from 'lucide-react';
+import { ArrowLeft, Sparkles, Heart, Globe, ShieldCheck, Zap, Users, Gift, Mail } from 'lucide-react';
 
 interface AboutPageProps {
   onBack: () => void;
@@ -50,21 +50,21 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onBack, onExploreTemplates
 
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#e15b70] flex items-center justify-center font-bold">
-              <ShieldCheck className="w-6 h-6" />
+              <Globe className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">Lifetime Link Validity</h3>
+            <h3 className="font-bold text-slate-900 text-base">Long-Term Cloud Hosting</h3>
             <p className="text-slate-500 text-xs leading-relaxed">
-              Every wishing website link you create stays active forever. Revisit your memories and birthday cakes whenever you want!
+              Permanent tier links are maintained on modern cloud servers so you can revisit your special memories whenever you wish.
             </p>
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-2xs space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-rose-50 text-[#e15b70] flex items-center justify-center font-bold">
-              <Users className="w-6 h-6" />
+              <Heart className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-slate-900 text-base">Loved by 50,000+ Users</h3>
+            <h3 className="font-bold text-slate-900 text-base">Crafted for Celebrations</h3>
             <p className="text-slate-500 text-xs leading-relaxed">
-              From birthdays and anniversaries to long-distance love stories, VishLink brings smiles to thousands of faces every day.
+              Thoughtfully designed for birthdays, anniversaries, proposals, and heartfelt surprises with interactive music and animations.
             </p>
           </div>
         </div>
@@ -76,17 +76,26 @@ export const AboutPage: React.FC<AboutPageProps> = ({ onBack, onExploreTemplates
             In a digital world dominated by temporary status updates and quick chat messages, we wanted to build something meaningful. VishLink gives everyone the power to create a dedicated digital sanctuary for their relationships — complete with interactive elements, personal soundtracks, and curated photo memories that last a lifetime.
           </p>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+          <div className="pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Heart className="w-5 h-5 text-[#e15b70] fill-[#e15b70]" />
               <span className="text-xs font-bold text-slate-800">Crafted with love for your special moments.</span>
             </div>
-            <button
-              onClick={onExploreTemplates}
-              className="bg-[#0d1222] hover:bg-[#e15b70] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-colors cursor-pointer"
-            >
-              Explore Templates
-            </button>
+            <div className="flex items-center gap-3">
+              <a
+                href="mailto:wishlink1806@gmail.com"
+                className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-[#e15b70] font-semibold transition"
+              >
+                <Mail className="w-4 h-4 text-[#e15b70]" />
+                <span>wishlink1806@gmail.com</span>
+              </a>
+              <button
+                onClick={onExploreTemplates}
+                className="bg-[#0d1222] hover:bg-[#e15b70] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-colors cursor-pointer"
+              >
+                Explore Templates
+              </button>
+            </div>
           </div>
         </div>
 

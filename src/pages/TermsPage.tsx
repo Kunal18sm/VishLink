@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, ShieldCheck, FileText, Lock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, FileText, Lock, MessageSquare, Mail, ExternalLink } from 'lucide-react';
 
 interface TermsPageProps {
   onBack: () => void;
@@ -22,13 +22,13 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onBack }) => {
         {/* Header */}
         <div className="text-center space-y-2">
           <span className="text-[#e15b70] text-xs font-bold uppercase tracking-wider bg-rose-50 px-3.5 py-1 rounded-full border border-rose-100">
-            Legal & Trust Guidelines
+            Terms & Information
           </span>
           <h1 className="font-serif text-3xl sm:text-4xl font-bold text-slate-900">
-            Terms of Service & Privacy Policy
+            Terms of Service & Privacy
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm max-w-lg mx-auto">
-            Last Updated: January 2026. Please read our operational policies regarding wishing web link creation, data protection, and lifetime validity.
+            Operational guidelines regarding wishing link generation, user data, and customer assistance.
           </p>
         </div>
 
@@ -38,41 +38,68 @@ export const TermsPage: React.FC<TermsPageProps> = ({ onBack }) => {
           <section className="space-y-3">
             <h2 className="font-serif text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-[#e15b70]" />
-              1. Web Link Service Terms
+              1. Digital Service Terms
             </h2>
             <p>
-              VishLink provides digital, interactive personalized wishing website links for personal non-commercial celebrations such as birthdays, anniversaries, proposals, and festivals. Once created, a unique URL (e.g. <code>vishlink.app/wish/recipient-name</code>) is issued for sharing via messaging platforms like WhatsApp, Email, or SMS.
+              VishLink provides digital, interactive personalized wishing website links for personal celebrations such as birthdays, anniversaries, proposals, and festivals. Once created, a unique URL (e.g. <code>vishlink.app/wish/recipient-name</code>) is issued for sharing via messaging platforms like WhatsApp or direct URL link.
             </p>
           </section>
 
           <section className="space-y-3 pt-4 border-t border-slate-100">
             <h2 className="font-serif text-xl font-bold text-slate-900 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-[#e15b70]" />
-              2. Lifetime Link Validity Guarantee
+              2. Link Validity & Hosting
             </h2>
             <p>
-              All purchased digital wishing website links come with 100% Lifetime Link Validity. VishLink guarantees that your generated link will remain accessible on cloud servers without expiration, unless deleted by user request or flagged for policy violations.
+              We provide hosting for your custom generated links. Temporary links are hosted for 3 months, whereas Permanent links are hosted for long-term access. We make reasonable efforts to keep links running smoothly on cloud servers, but links are provided as-is without legal guarantees or warranties of uninterrupted uptime.
             </p>
           </section>
 
           <section className="space-y-3 pt-4 border-t border-slate-100">
             <h2 className="font-serif text-xl font-bold text-slate-900 flex items-center gap-2">
               <Lock className="w-5 h-5 text-[#e15b70]" />
-              3. Privacy & Media Content Rules
+              3. Privacy & Media Content
             </h2>
             <p>
-              Photos, audio tracks, and custom notes uploaded to VishLink are strictly used to render your personalized wishing webpage. We do not sell, share, or index your personal photos on public search engines. You retain full ownership of your media.
+              Photos, audio selections, and custom text messages uploaded by users are strictly used to render the requested wishing webpage. Users are solely responsible for the content they upload. Uploading offensive, abusive, or copyright-infringing content is strictly prohibited.
             </p>
           </section>
 
           <section className="space-y-3 pt-4 border-t border-slate-100">
             <h2 className="font-serif text-xl font-bold text-slate-900 flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-[#e15b70]" />
-              4. Refunds & Instant Delivery Policy
+              <MessageSquare className="w-5 h-5 text-[#e15b70]" />
+              4. Digital Delivery & Support Assistance
             </h2>
             <p>
-              Because digital wishing links are generated instantly upon purchase, refunds are generally processed in cases of duplicate transactions or link generation errors. If you experience any link issue, contact our 24/7 WhatsApp support at +91 98765 43210.
+              Wishing links are digital products generated immediately after customization. There is no automated refund policy. If you experience any technical problem with your link, text typo, or need an update, simply contact our support team. We will directly help you update or fix your wishing link.
             </p>
+          </section>
+
+          <section className="space-y-3 pt-4 border-t border-slate-100">
+            <h2 className="font-serif text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Mail className="w-5 h-5 text-[#e15b70]" />
+              5. Contact Support
+            </h2>
+            <p>
+              For any help, link corrections, or inquiries, reach out to us directly through our official channels:
+            </p>
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div>
+                <span className="text-slate-400 block text-[11px] font-semibold">Official Email</span>
+                <a href="mailto:wishlink1806@gmail.com" className="font-bold text-slate-900 text-sm hover:text-[#e15b70] transition">
+                  wishlink1806@gmail.com
+                </a>
+              </div>
+              <a
+                href="https://www.instagram.com/vish_link18/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-600 to-rose-600 text-white rounded-xl font-bold hover:opacity-95 transition"
+              >
+                <span>Instagram @vish_link18</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </section>
 
         </div>
