@@ -56,7 +56,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'manual_upi'>('razorpay');
+  const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'manual_upi'>('manual_upi');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -569,8 +569,21 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       </span>
                     </div>
 
-                    {/* Method Tabs: Razorpay vs Manual UPI */}
+                    {/* Method Tabs: Manual UPI vs Razorpay */}
                     <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100/80 rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('manual_upi')}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          paymentMethod === 'manual_upi'
+                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Manual UPI & QR</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setPaymentMethod('razorpay')}
@@ -582,19 +595,6 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       >
                         <CreditCard className="w-3.5 h-3.5 text-[#e15b70]" />
                         <span>Razorpay Checkout</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('manual_upi')}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
-                          paymentMethod === 'manual_upi'
-                            ? 'bg-white text-slate-900 shadow-xs border border-slate-200/80'
-                            : 'text-slate-600 hover:text-slate-900'
-                        }`}
-                      >
-                        <QrCode className="w-3.5 h-3.5 text-slate-500" />
-                        <span>Manual UPI & QR</span>
                       </button>
                     </div>
 

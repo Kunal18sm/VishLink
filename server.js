@@ -1416,23 +1416,55 @@ app.delete('/api/admin/templates/:id', authenticateToken, adminOnly, async (req,
   }
 });
 
-app.post('/api/admin/orders/:id/approve', authenticateToken, adminOnly, async (req, res) => {
+function buildOrderLookupFilter(rawId) {
+  const cleanId = String(rawId || '').trim();
+  const conditions = [
+    { purchaseId: cleanId },
+    { id: cleanId },
+    { wishingSlug: cleanId },
+  ];
+  if (mongoose.Types.ObjectId.isValid(cleanId)) {
+    conditions.unshift({ _id: new mongoose.Types.ObjectId(cleanId) });
+  }
+  return { $or: conditions };
+}
+
+async function handleAdminApproveOrder(req, res) {
   try {
-    const filter = mongoose.Types.ObjectId.isValid(req.params.id)
-      ? { $or: [{ purchaseId: req.params.id }, { _id: req.params.id }] }
-      : { purchaseId: req.params.id };
+    const rawId = req.params.id;
+    const filter = buildOrderLookupFilter(rawId);
+    const action = String(req.body?.action || req.query?.action || '').trim().toLowerCase();
 
     let order = await PurchasedWeb.findOne(filter);
     if (order) {
-      const targetLiveState = !order.isLive;
+      const targetLiveState =
+        action === 'accept' ? true : action === 'disable' ? false : !order.isLive;
+
       const updatedOrder = await PurchasedWeb.findOneAndUpdate(
         filter,
         { $set: { isLive: targetLiveState, adminInteracted: true, adminInterected: true } },
         { new: true }
       );
+
+      if (targetLiveState && order.author) {
+        await User.updateOne(
+          { _id: order.author, 'webCollection.purchasedId': order._id },
+          { $set: { 'webCollection.$.permanentLink': String(order.webUrl || '') } }
+        ).catch(() => {});
+      }
+
+      if (targetLiveState && order.webName) {
+        await WebSample.findOneAndUpdate(
+          { webName: order.webName },
+          { $inc: { soldOut: 1 } }
+        ).catch(() => {});
+      }
+
       return res.json({
         success: true,
-        message: `Order live status updated to ${updatedOrder.isLive}`,
+        message: targetLiveState
+          ? '✓ Request accepted! Wishing link is now live.'
+          : 'Wish link has been disabled.',
         isLive: updatedOrder.isLive,
         adminInteracted: updatedOrder.adminInteracted,
       });
@@ -1440,24 +1472,60 @@ app.post('/api/admin/orders/:id/approve', authenticateToken, adminOnly, async (r
 
     let permOrder = await PermanentPurchasedWeb.findOne(filter);
     if (permOrder) {
-      const targetLiveState = !permOrder.isLive;
+      const targetLiveState =
+        action === 'accept' ? true : action === 'disable' ? false : !permOrder.isLive;
+
       const updatedPermOrder = await PermanentPurchasedWeb.findOneAndUpdate(
         filter,
         { $set: { isLive: targetLiveState, adminInteracted: true, adminInterected: true } },
         { new: true }
       );
+
+      if (targetLiveState && permOrder.author) {
+        await User.updateOne(
+          { _id: permOrder.author, 'webCollection.purchasedId': permOrder._id },
+          { $set: { 'webCollection.$.permanentLink': String(permOrder.webUrl || '') } }
+        ).catch(() => {});
+      }
+
+      if (targetLiveState && permOrder.webName) {
+        await WebSample.findOneAndUpdate(
+          { webName: permOrder.webName },
+          { $inc: { soldOut: 1 } }
+        ).catch(() => {});
+      }
+
       return res.json({
         success: true,
-        message: `Permanent order live status updated to ${updatedPermOrder.isLive}`,
+        message: targetLiveState
+          ? '✓ Permanent request accepted! Wishing link is now live.'
+          : 'Permanent wish link has been disabled.',
         isLive: updatedPermOrder.isLive,
         adminInteracted: updatedPermOrder.adminInteracted,
       });
     }
 
-    res.status(404).json({ success: false, message: 'Order not found.' });
+    res.status(404).json({ success: false, message: 'Order request not found.' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
+}
+
+app.post('/api/admin/orders/:id/approve', authenticateToken, adminOnly, handleAdminApproveOrder);
+app.post('/api/admin/orders/:id/accept', authenticateToken, adminOnly, (req, res) => {
+  req.body = req.body || {};
+  req.body.action = 'accept';
+  return handleAdminApproveOrder(req, res);
+});
+app.get('/api/admin/orders/:id/accept', authenticateToken, adminOnly, (req, res) => {
+  req.query = req.query || {};
+  req.query.action = 'accept';
+  return handleAdminApproveOrder(req, res);
+});
+app.get('/requests/accept/:id', authenticateToken, adminOnly, (req, res) => {
+  req.query = req.query || {};
+  req.query.action = 'accept';
+  return handleAdminApproveOrder(req, res);
 });
 
 app.delete('/api/admin/orders/:id', authenticateToken, adminOnly, async (req, res) => {

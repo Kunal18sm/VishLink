@@ -40,6 +40,7 @@ import {
   VolumeX,
   ShoppingCart,
   UserPlus,
+  CreditCard,
 } from 'lucide-react';
 
 
@@ -72,8 +73,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
     | 'notifications'
     | 'orders-all'
     | 'orders-pending'
+    | 'orders-temp'
     | 'orders-permanent'
     | 'orders-live'
+    | 'orders-permanent-live'
+    | 'orders-expired'
     | 'users'
     | 'templates'
     | 'add-template'
@@ -81,6 +85,8 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
     | 'feedback'
     | 'settings'
   >('dashboard');
+
+  const [ordersViewMode, setOrdersViewMode] = useState<'cards' | 'table'>('cards');
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -627,18 +633,30 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
     }
   };
 
-  const handleToggleLiveOrder = async (orderId: string) => {
+  const handleToggleLiveOrder = async (orderId: string, explicitAction?: 'accept' | 'disable') => {
     const token = localStorage.getItem('vishlink_token');
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/approve`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ action: explicitAction || 'toggle' }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setAdminMsg(`Order status updated successfully!`);
+        setAdminMsg(
+          explicitAction === 'accept'
+            ? '✓ Wish Link Request Accepted! Link is now live.'
+            : explicitAction === 'disable'
+            ? 'Wish link has been disabled.'
+            : 'Order live status updated successfully!'
+        );
         fetchAdminData();
-        setTimeout(() => setAdminMsg(''), 3000);
+        setTimeout(() => setAdminMsg(''), 4000);
+      } else {
+        alert(data.message || 'Failed to update order status');
       }
     } catch (err: any) {
       alert(err.message || 'Failed to toggle order status');
@@ -869,16 +887,30 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
 
   // Filtered Orders logic
   const filteredOrders = orders.filter((o) => {
+    const isPending = isOrderPending(o);
+    const isPerm = o.isTemporary === false || o.dbType === 'Permanent DB';
+    const isLive = o.isLive === true || o.isLive === 'true';
+    const isExpired = o.isExpired || (o.expiresAt && new Date(o.expiresAt) <= new Date());
+
     if (activeTab === 'orders-pending') {
-      return isOrderPending(o);
+      return isPending && !isExpired;
+    }
+    if (activeTab === 'orders-temp') {
+      return !isPerm && isPending && !isExpired;
     }
     if (activeTab === 'orders-permanent') {
-      return o.isTemporary === false || o.dbType === 'Permanent DB';
+      return isPerm && isPending && !isExpired;
     }
     if (activeTab === 'orders-live') {
-      return o.isLive === true || o.isLive === 'true';
+      return isLive && !isExpired;
     }
-    return true;
+    if (activeTab === 'orders-permanent-live') {
+      return isPerm && isLive && !isExpired;
+    }
+    if (activeTab === 'orders-expired') {
+      return isExpired;
+    }
+    return true; // 'orders-all'
   });
 
   return (
@@ -1997,155 +2029,423 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onBack }) => {
           </div>
         )}
 
-        {/* ---------------- 5. DEDICATED PURCHASED ORDERS PAGE ---------------- */}
+        {/* ---------------- 5. DEDICATED PURCHASED ORDERS / LINK REQUESTS PAGE ---------------- */}
         {activeTab.startsWith('orders-') && (
           <div className="space-y-6 animate-in fade-in">
-            {/* Filter Tabs for Orders */}
-            <div className="flex items-center justify-between bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setActiveTab('orders-all')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
-                    activeTab === 'orders-all' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  All Orders ({orders.length})
-                </button>
+            {/* Header Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/80 p-5 rounded-3xl border border-slate-800">
+              <div>
+                <span className="text-[10px] uppercase font-bold tracking-widest text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                  Wish Link Requests & Verification
+                </span>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1.5 flex items-center gap-2">
+                  <Package className="w-6 h-6 text-emerald-400" />
+                  {activeTab === 'orders-pending'
+                    ? 'Incoming Pending Requests'
+                    : activeTab === 'orders-temp'
+                    ? 'Temporary Link Requests'
+                    : activeTab === 'orders-permanent'
+                    ? 'Permanent Link Requests'
+                    : activeTab === 'orders-live'
+                    ? 'All Active Live Links'
+                    : activeTab === 'orders-permanent-live'
+                    ? 'Permanent Live Links'
+                    : activeTab === 'orders-expired'
+                    ? 'Expired Wish Links'
+                    : 'All Purchased Orders History'}
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Review purchase requests, verify payment proof screenshots, and accept links with 1 click.
+                </p>
+              </div>
 
+              {/* View Mode Toggle */}
+              <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800 self-start sm:self-auto">
                 <button
-                  onClick={() => setActiveTab('orders-pending')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
-                    activeTab === 'orders-pending' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
+                  type="button"
+                  onClick={() => setOrdersViewMode('cards')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    ordersViewMode === 'cards'
+                      ? 'bg-rose-500 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Pending Proofs ({orders.filter(isOrderPending).length})
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>Cards View</span>
                 </button>
-
                 <button
-                  onClick={() => setActiveTab('orders-permanent')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
-                    activeTab === 'orders-permanent' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
+                  type="button"
+                  onClick={() => setOrdersViewMode('table')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+                    ordersViewMode === 'table'
+                      ? 'bg-rose-500 text-white shadow-xs'
+                      : 'text-slate-400 hover:text-white'
                   }`}
                 >
-                  Permanent Links ({stats.permOrdersCount || 0})
-                </button>
-
-                <button
-                  onClick={() => setActiveTab('orders-live')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition ${
-                    activeTab === 'orders-live' ? 'bg-rose-500 text-white' : 'bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  Active Live Links ({orders.filter((o) => o.isLive).length})
+                  <Filter className="w-3.5 h-3.5" />
+                  <span>Table View</span>
                 </button>
               </div>
             </div>
 
-            {/* Orders Table */}
-            <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
-                    <tr>
-                      <th className="py-3.5 px-4">Order ID & Date</th>
-                      <th className="py-3.5 px-4">Recipient & Sender</th>
-                      <th className="py-3.5 px-4">Live Wish URL</th>
-                      <th className="py-3.5 px-4">Plan & Price</th>
-                      <th className="py-3.5 px-4">Payment Proof</th>
-                      <th className="py-3.5 px-4">Status</th>
-                      <th className="py-3.5 px-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {filteredOrders.map((o) => (
-                      <tr key={o.purchaseId || o._id} className="hover:bg-slate-800/50 transition">
-                        <td className="py-3.5 px-4">
-                          <span className="font-mono font-bold text-white block">
-                            {o.purchaseId || o.id}
-                          </span>
-                          <span className="text-[10px] text-slate-500">{o.date || o.purchaseDate}</span>
-                        </td>
+            {/* Filter Tabs matching wish-link */}
+            <div className="flex flex-wrap items-center gap-2 bg-slate-900/60 p-3 rounded-2xl border border-slate-800">
+              <button
+                onClick={() => setActiveTab('orders-pending')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition flex items-center gap-1.5 ${
+                  activeTab === 'orders-pending'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                    : 'bg-slate-800/80 text-amber-300 hover:bg-slate-800 border border-amber-500/20'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Pending Requests</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  activeTab === 'orders-pending' ? 'bg-slate-950 text-amber-400' : 'bg-amber-500/20 text-amber-300'
+                }`}>
+                  {orders.filter(isOrderPending).length}
+                </span>
+              </button>
 
-                        <td className="py-3.5 px-4">
-                          <span className="font-bold text-rose-300 block">To: {o.receiver || o.receiverName}</span>
-                          <span className="text-slate-400 text-[11px]">From: {o.sender || o.senderName}</span>
-                        </td>
+              <button
+                onClick={() => setActiveTab('orders-temp')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition ${
+                  activeTab === 'orders-temp' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                Temporary Requests
+              </button>
 
-                        <td className="py-3.5 px-4 max-w-[200px] truncate">
+              <button
+                onClick={() => setActiveTab('orders-permanent')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition ${
+                  activeTab === 'orders-permanent' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                Permanent Requests
+              </button>
+
+              <button
+                onClick={() => setActiveTab('orders-live')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition flex items-center gap-1.5 ${
+                  activeTab === 'orders-live'
+                    ? 'bg-emerald-600 text-white font-black shadow-md'
+                    : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+                }`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>All Live Links</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                  {orders.filter((o) => o.isLive).length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('orders-permanent-live')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition ${
+                  activeTab === 'orders-permanent-live' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                Permanent Live
+              </button>
+
+              <button
+                onClick={() => setActiveTab('orders-expired')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition ${
+                  activeTab === 'orders-expired' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-300 hover:text-white'
+                }`}
+              >
+                Expired
+              </button>
+
+              <button
+                onClick={() => setActiveTab('orders-all')}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold cursor-pointer transition ${
+                  activeTab === 'orders-all' ? 'bg-slate-700 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+              >
+                All History ({orders.length})
+              </button>
+            </div>
+
+            {/* CARD VIEW (DEFAULT - MATCHING REFERENCE WISHLINK PROJECT) */}
+            {ordersViewMode === 'cards' ? (
+              <div className="space-y-4">
+                {filteredOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center border border-dashed border-slate-700/80 rounded-3xl bg-slate-900/30 space-y-3">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center text-slate-500">
+                      <Check className="w-7 h-7 text-emerald-400" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-200">No Pending Requests</h3>
+                    <p className="text-xs text-slate-400 max-w-sm">
+                      All caught up! There are no wishing link requests in this category.
+                    </p>
+                  </div>
+                ) : (
+                  filteredOrders.map((o) => (
+                    <div
+                      key={o.purchaseId || o._id}
+                      className="group bg-slate-900/80 backdrop-blur-md border border-slate-800 hover:border-indigo-500/40 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col lg:flex-row items-center gap-6 transition-all duration-200"
+                    >
+                      {/* Left: User / Template details */}
+                      <div className="flex items-center gap-4 w-full lg:w-1/3">
+                        <div className="w-14 h-14 rounded-2xl bg-slate-800 border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center shadow-inner">
+                          <img
+                            src={`https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+                              o.sender || o.senderName || 'User'
+                            )}&backgroundColor=1e293b`}
+                            alt="Sender"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-white truncate text-base">
+                              {o.webName || o.templateName || 'Wishing Template'}
+                            </h3>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${
+                                o.isLive
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              }`}
+                            >
+                              {o.isLive ? '🟢 Live Active' : '⏳ Pending'}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-rose-300 font-semibold truncate">
+                            <span className="text-slate-400 font-normal">To:</span> {o.receiver || o.receiverName}
+                          </p>
+                          <p className="text-xs text-slate-300 truncate">
+                            <span className="text-slate-400 font-normal">From:</span> {o.sender || o.senderName}
+                          </p>
+
+                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span className="text-emerald-400 font-mono font-extrabold text-sm">
+                              {o.price === 0 || o.totalPrice === 0 ? 'FREE' : `₹${o.price || o.totalPrice}`}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 font-medium">
+                              {String(o.purchaseMode || 'upi').toUpperCase()}
+                            </span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700">
+                              {o.isTemporary === false ? '💎 Permanent' : '⏳ 3 Months'}
+                            </span>
+                          </div>
+
+                          <p className="text-[10px] text-slate-500 pt-0.5 font-mono">
+                            ID: <span className="text-slate-400">{o.purchaseId || o.id}</span>
+                            {o.date && <span> • {new Date(o.date).toLocaleDateString()}</span>}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Middle: Payment Proof Preview */}
+                      <div className="w-full lg:w-1/3 flex justify-center">
+                        <div className="relative group/image overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-950/60 w-full max-w-xs h-40 sm:h-44 flex items-center justify-center p-2">
+                          {getProofImageUrl(o.paymentProofUrl) ? (
+                            <>
+                              <img
+                                src={getProofImageUrl(o.paymentProofUrl)}
+                                alt="Payment Proof"
+                                className="max-w-full max-h-full object-contain rounded-lg"
+                              />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/image:opacity-100 transition duration-200 flex items-center justify-center backdrop-blur-xs">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedProofUrl(getProofImageUrl(o.paymentProofUrl))}
+                                  className="px-3.5 py-2 bg-white text-slate-900 rounded-xl text-xs font-bold shadow-lg flex items-center gap-1.5 hover:bg-slate-100 transition cursor-pointer"
+                                >
+                                  <ImageIcon className="w-4 h-4 text-rose-500" />
+                                  <span>View Full Proof</span>
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center p-4 text-slate-500">
+                              {o.purchaseMode === 'razorpay' ? (
+                                <div className="space-y-1">
+                                  <CreditCard className="w-6 h-6 text-sky-400 mx-auto" />
+                                  <p className="text-xs font-bold text-sky-300">Razorpay Verified</p>
+                                  <p className="text-[10px] text-slate-400 font-mono">No manual proof needed</p>
+                                </div>
+                              ) : o.price === 0 || o.totalPrice === 0 ? (
+                                <div className="space-y-1">
+                                  <Sparkles className="w-6 h-6 text-emerald-400 mx-auto" />
+                                  <p className="text-xs font-bold text-emerald-300">Free Tier Link</p>
+                                  <p className="text-[10px] text-slate-400">No payment required</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <AlertCircle className="w-6 h-6 text-amber-400 mx-auto" />
+                                  <p className="text-xs text-amber-300 font-bold">No Proof Uploaded</p>
+                                  <p className="text-[10px] text-slate-400">Manual UPI submission</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Big Prominent Action Buttons */}
+                      <div className="w-full lg:w-1/3 flex flex-col gap-2.5 justify-center">
+                        {/* ACCEPT BUTTON - PROMINENT & HIGH-VISIBILITY */}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleLiveOrder(o.purchaseId || o._id, o.isLive ? 'disable' : 'accept')}
+                          className={`w-full py-3.5 px-4 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg transition-all cursor-pointer ${
+                            o.isLive
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500 hover:text-slate-950'
+                              : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-950/60 hover:scale-[1.01]'
+                          }`}
+                        >
+                          <Check className="w-4 h-4" />
+                          <span>{o.isLive ? 'Disable Link (Currently Live)' : '✓ Accept Request & Make Live'}</span>
+                        </button>
+
+                        <div className="flex gap-2 w-full">
                           <a
                             href={o.wishingUrl || o.webUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="font-mono text-emerald-400 hover:underline text-[11px] truncate block"
+                            className="flex-1 py-2.5 px-3 text-center rounded-xl bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-600 hover:text-white transition font-bold text-xs flex items-center justify-center gap-1.5"
                           >
-                            {o.wishingUrl || o.webUrl}
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Visit Link</span>
                           </a>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span className="font-extrabold text-white block">
-                            {o.price === 0 || o.totalPrice === 0 ? 'FREE' : `₹${o.price || o.totalPrice}`}
-                          </span>
-                          <span className="text-[10px] text-slate-400">
-                            {o.isTemporary === false ? '💎 Permanent' : '⏳ Temporary'}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          {getProofImageUrl(o.paymentProofUrl) ? (
-                            <button
-                              onClick={() => setSelectedProofUrl(getProofImageUrl(o.paymentProofUrl))}
-                              className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px] hover:bg-indigo-500/30 transition cursor-pointer flex items-center gap-1"
-                            >
-                              <ImageIcon className="w-3.5 h-3.5" /> View Proof
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-slate-500">None / Free</span>
-                          )}
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                              o.isLive
-                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                                : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                            }`}
-                          >
-                            {o.isLive ? '🟢 Live Active' : '⏳ Pending'}
-                          </span>
-                        </td>
-
-                        <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
-                          <button
-                            onClick={() => handleToggleLiveOrder(o.purchaseId || o._id)}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition cursor-pointer"
-                          >
-                            {o.isLive ? 'Disable' : '✓ Accept & Live'}
-                          </button>
 
                           <button
+                            type="button"
                             onClick={() => handleDeleteOrder(o.purchaseId || o._id)}
-                            className="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-[11px] transition cursor-pointer"
-                            title="Delete Normal"
+                            className="flex-1 py-2.5 px-3 text-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-600 hover:text-white transition font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
                           >
-                            Delete
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
                           </button>
+                        </div>
 
-                          <button
-                            onClick={() => handleDeleteFakePayment(o.purchaseId || o._id)}
-                            className="px-2 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold text-[11px] border border-red-500/30 transition cursor-pointer"
-                            title="Reject & Mark as Fake Payment Proof"
-                          >
-                            Fake Proof Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFakePayment(o.purchaseId || o._id)}
+                          className="w-full py-2 px-3 rounded-xl bg-amber-500/10 text-amber-300 border border-amber-500/30 hover:bg-amber-500 hover:text-slate-950 transition font-semibold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer"
+                          title="Reject request and notify user of fake payment screenshot"
+                        >
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Reject: Fake Payment Proof</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
-            </div>
+            ) : (
+              /* TABLE VIEW OPTION */
+              <div className="bg-slate-900/80 rounded-2xl border border-slate-800 overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-950 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
+                      <tr>
+                        <th className="py-3.5 px-4">Order ID & Date</th>
+                        <th className="py-3.5 px-4">Recipient & Sender</th>
+                        <th className="py-3.5 px-4">Live Wish URL</th>
+                        <th className="py-3.5 px-4">Plan & Price</th>
+                        <th className="py-3.5 px-4">Payment Proof</th>
+                        <th className="py-3.5 px-4">Status</th>
+                        <th className="py-3.5 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80">
+                      {filteredOrders.map((o) => (
+                        <tr key={o.purchaseId || o._id} className="hover:bg-slate-800/50 transition">
+                          <td className="py-3.5 px-4">
+                            <span className="font-mono font-bold text-white block">
+                              {o.purchaseId || o.id}
+                            </span>
+                            <span className="text-[10px] text-slate-500">{o.date || o.purchaseDate}</span>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span className="font-bold text-rose-300 block">To: {o.receiver || o.receiverName}</span>
+                            <span className="text-slate-400 text-[11px]">From: {o.sender || o.senderName}</span>
+                          </td>
+
+                          <td className="py-3.5 px-4 max-w-[200px] truncate">
+                            <a
+                              href={o.wishingUrl || o.webUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-mono text-emerald-400 hover:underline text-[11px] truncate block"
+                            >
+                              {o.wishingUrl || o.webUrl}
+                            </a>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span className="font-extrabold text-white block">
+                              {o.price === 0 || o.totalPrice === 0 ? 'FREE' : `₹${o.price || o.totalPrice}`}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {o.isTemporary === false ? '💎 Permanent' : '⏳ Temporary'}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            {getProofImageUrl(o.paymentProofUrl) ? (
+                              <button
+                                onClick={() => setSelectedProofUrl(getProofImageUrl(o.paymentProofUrl))}
+                                className="px-2.5 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 font-bold text-[11px] hover:bg-indigo-500/30 transition cursor-pointer flex items-center gap-1"
+                              >
+                                <ImageIcon className="w-3.5 h-3.5" /> View Proof
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-500">None / Free</span>
+                            )}
+                          </td>
+
+                          <td className="py-3.5 px-4">
+                            <span
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                                o.isLive
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              }`}
+                            >
+                              {o.isLive ? '🟢 Live Active' : '⏳ Pending'}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right space-x-1.5 whitespace-nowrap">
+                            <button
+                              onClick={() => handleToggleLiveOrder(o.purchaseId || o._id, o.isLive ? 'disable' : 'accept')}
+                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition cursor-pointer"
+                            >
+                              {o.isLive ? 'Disable' : '✓ Accept'}
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteOrder(o.purchaseId || o._id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition cursor-pointer"
+                              title="Delete Normal"
+                            >
+                              Delete
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteFakePayment(o.purchaseId || o._id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold text-xs border border-red-500/30 transition cursor-pointer"
+                              title="Reject & Mark as Fake Payment Proof"
+                            >
+                              Fake Proof Delete
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
