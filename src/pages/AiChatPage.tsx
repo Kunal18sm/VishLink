@@ -22,6 +22,7 @@ interface Message {
 
 interface AiChatPageProps {
   onBack: () => void;
+  initialMode?: 'bot' | 'admin';
 }
 
 const getChatSessionId = (): string => {
@@ -33,8 +34,14 @@ const getChatSessionId = (): string => {
   return sId;
 };
 
-export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack }) => {
-  const [chatMode, setChatMode] = useState<'bot' | 'admin'>('bot');
+export const AiChatPage: React.FC<AiChatPageProps> = ({ onBack, initialMode = 'bot' }) => {
+  const [chatMode, setChatMode] = useState<'bot' | 'admin'>(initialMode);
+
+  useEffect(() => {
+    if (initialMode) {
+      setChatMode(initialMode);
+    }
+  }, [initialMode]);
   const [botMessages, setBotMessages] = useState<Message[]>([
     {
       id: 'bot_welcome',

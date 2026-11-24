@@ -801,6 +801,18 @@ app.post(
         });
       }
 
+      // Check Payment Proof screenshot for paid manual UPI orders
+      const numPrice = Number(totalPrice) || 0;
+      if (numPrice > 0 && purchaseMode === 'upi') {
+        const hasPaymentProof = req.files && req.files.paymentProof && req.files.paymentProof[0];
+        if (!hasPaymentProof) {
+          return res.status(400).json({
+            success: false,
+            message: 'Payment screenshot is required for paid orders. Please upload your payment screenshot.',
+          });
+        }
+      }
+
       // Check User
       let authorUser = null;
       if (req.user) {

@@ -32,43 +32,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   const handleCheckout = async () => {
     if (subtotal <= 0) return;
-    setIsProcessingPayment(true);
-    setCheckoutError(null);
-
-    try {
-      const userStr = localStorage.getItem('user');
-      const user = userStr ? JSON.parse(userStr) : null;
-      const amountInPaise = Math.round(subtotal * 100);
-
-      await launchRazorpayCheckout({
-        amountInPaise,
-        currency: 'INR',
-        name: 'VishLink Wishing Cart',
-        description: `Payment for ${cartItems.length} Wishing Link(s)`,
-        prefill: {
-          name: user?.name || '',
-          email: user?.email || '',
-          contact: user?.phone || '',
-        },
-        notes: {
-          itemCount: String(cartItems.length),
-        },
-      });
-
-      setIsOrderPlaced(true);
-      setTimeout(() => {
-        setIsOrderPlaced(false);
-        onClearCart();
-        onClose();
-      }, 4000);
-    } catch (err: any) {
-      console.error('Cart checkout error:', err);
-      if (err.message && !err.message.includes('closed by the user')) {
-        setCheckoutError(err.message || 'Payment failed. Please try again.');
-      }
-    } finally {
-      setIsProcessingPayment(false);
-    }
+    setCheckoutError('Razorpay online checkout is not yet integrated. Please open and customize your wishing template to pay using Manual UPI & QR, or chat with Admin Support.');
   };
 
   return (

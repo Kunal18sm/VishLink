@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Sparkles,
   ShoppingBag,
@@ -22,6 +22,10 @@ import {
   Star,
   CheckCircle2,
   Send,
+  AlertTriangle,
+  X,
+  Settings,
+  Clock,
 } from 'lucide-react';
 import { TemplateItem, PurchasedOrder } from '../types';
 import { InstagramBanner } from '../components/InstagramBanner';
@@ -57,6 +61,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
   const [paymentProofFile, setPaymentProofFile] = useState<File | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'razorpay' | 'manual_upi'>('manual_upi');
+  const [showRazorpayNoticeModal, setShowRazorpayNoticeModal] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -108,6 +113,17 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
   // Effective price depending on temporary vs permanent plan selection
   const totalPrice = isTemporary ? template.price : permanentPrice;
   const isFreePlan = isTemporary && template.price === 0;
+
+  // 3-Month expiry date text for temporary plan
+  const expiryDateText = useMemo(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 3);
+    return d.toLocaleDateString('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  }, []);
 
   const handleMultipleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -279,6 +295,14 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
       setErrorMsg(
         `Is template ke liye exactly ${requiredPhotosCount} photo(s) upload karna zaroori hai. (Aapne ${selectedFiles.length} photo upload ki hai)`
       );
+      return;
+    }
+
+    // Payment proof screenshot is strictly mandatory for paid orders
+    if (totalPrice > 0 && paymentMethod === 'manual_upi' && !paymentProofFile) {
+      setErrorMsg('Payment screenshot upload karna zaroori hai. Kripya apna payment screenshot upload karein.');
+      const proofEl = document.getElementById('payment-proof-input');
+      proofEl?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
@@ -469,7 +493,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 <div id="photo-upload-section">
                   <label className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-2">
                     <ImageIcon className="w-4 h-4 text-[#e15b70]" />
-                    Upload Surprise Photos ({requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''} required *)
+                    Upload Photos ({requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''} required *)
                   </label>
                   <div className="relative border-2 border-dashed border-rose-200 rounded-2xl bg-rose-50/50 p-6 text-center hover:bg-rose-50 transition">
                     <input
@@ -484,7 +508,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                       Click or drag & drop {requiredPhotosCount} photo{requiredPhotosCount > 1 ? 's' : ''}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">
-                      Supports JPG, PNG, WebP (Uploaded directly to Cloudinary)
+                      Supports JPG, PNG, WebP
                     </p>
                   </div>
 
@@ -560,16 +584,13 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                 {totalPrice > 0 ? (
                   <div className="rounded-3xl border border-rose-200/90 bg-white p-5 shadow-xs space-y-4">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                      <div>
-                        <h4 className="text-sm font-bold text-slate-900">Choose Payment Method</h4>
-                        <p className="text-xs text-slate-500">Pay ₹{totalPrice} to generate your wishing link</p>
-                      </div>
-                      <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      <h4 className="text-sm font-bold text-slate-900">Choose Payment Method</h4>
+                      <span className="shrink-0 whitespace-nowrap bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
                         100% Secure
                       </span>
                     </div>
 
-                    {/* Method Tabs: Manual UPI vs Razorpay */}
+                    {/* Method Tabs: UPI & QR vs Razorpay */}
                     <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100/80 rounded-2xl">
                       <button
                         type="button"
@@ -581,7 +602,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                         }`}
                       >
                         <QrCode className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Manual UPI & QR</span>
+                        <span>UPI & QR</span>
                       </button>
 
                       <button
@@ -594,13 +615,13 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                         }`}
                       >
                         <CreditCard className="w-3.5 h-3.5 text-[#e15b70]" />
-                        <span>Razorpay Checkout</span>
+                        <span>Razorpay</span>
                       </button>
                     </div>
 
                     {/* Razorpay Option Content */}
                     {paymentMethod === 'razorpay' ? (
-                      <div className="space-y-3 pt-1">
+                      <div className="space-y-3.5 pt-1">
                         {errorMsg && (
                           <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs flex items-center gap-2 text-left font-medium">
                             <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -608,27 +629,47 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                           </div>
                         )}
 
-                        <button
-                          type="button"
-                          onClick={handleRazorpayCheckout}
-                          disabled={loading}
-                          className="w-full inline-flex items-center justify-center gap-2 bg-[#0c2340] hover:bg-[#1a365d] active:scale-[0.99] text-white font-bold text-sm py-3.5 px-6 rounded-2xl shadow-sm transition-all cursor-pointer disabled:opacity-50"
-                        >
-                          {loading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              <span>Processing...</span>
-                            </>
-                          ) : (
-                            <>
-                              <CreditCard className="w-4 h-4 text-sky-400" />
-                              <span>Pay ₹{totalPrice} with Razorpay</span>
-                            </>
-                          )}
-                        </button>
+                        {/* Compact Gateway Notice Card with Spinning Gear */}
+                        <div className="rounded-2xl border border-amber-200/90 bg-amber-50/70 p-4 sm:p-5 text-left space-y-3.5 shadow-xs">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                              <Settings className="w-5 h-5 animate-spin" style={{ animationDuration: '4s' }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-bold text-slate-900 text-sm">
+                                Razorpay Currently Unavailable
+                              </h4>
+                              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                                Online payment via Razorpay is currently undergoing maintenance. Please complete your order using <strong className="text-slate-900 font-semibold">UPI &amp; QR</strong>, or contact admin support if you need any assistance.
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="pt-0.5 flex flex-col sm:flex-row gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setPaymentMethod('manual_upi')}
+                              className="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                            >
+                              <QrCode className="w-4 h-4" />
+                              <span>Pay via UPI &amp; QR</span>
+                            </button>
+
+                            {onOpenChatSupport && (
+                              <button
+                                type="button"
+                                onClick={onOpenChatSupport}
+                                className="py-2.5 px-4 rounded-xl bg-white hover:bg-slate-50 active:scale-[0.99] text-slate-800 border border-slate-300 hover:border-slate-400 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+                              >
+                                <MessageSquare className="w-4 h-4 text-rose-500" />
+                                <span>Chat with Admin</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ) : (
-                      /* Manual UPI Transfer Option */
+                      /* UPI Transfer Option */
                       <div className="space-y-3 pt-1">
                         <div className="text-center space-y-2">
                           <p className="text-xs font-bold text-slate-700">
@@ -639,7 +680,7 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                             className="inline-flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2.5 px-4 rounded-xl shadow-xs transition"
                           >
                             <CreditCard className="w-4 h-4" />
-                            <span>Open UPI App (₹{totalPrice})</span>
+                            <span>Click to Pay (₹{totalPrice})</span>
                           </a>
                         </div>
 
@@ -656,14 +697,17 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                             Upload Payment Screenshot
                           </label>
                           <input
+                            id="payment-proof-input"
                             type="file"
                             accept="image/*"
+                            required={totalPrice > 0}
                             onChange={(e) => {
                               if (e.target.files && e.target.files[0]) {
                                 setPaymentProofFile(e.target.files[0]);
+                                setErrorMsg('');
                               }
                             }}
-                            className="w-full text-xs text-slate-500 file:mr-2 file:rounded-xl file:border-0 file:bg-rose-100 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-[#e15b70]"
+                            className="w-full text-xs text-slate-500 file:mr-2 file:rounded-xl file:border-0 file:bg-rose-100 file:px-2.5 file:py-1.5 file:text-xs file:font-semibold file:text-[#e15b70] cursor-pointer"
                           />
                           {paymentProofFile && (
                             <p className="text-xs font-semibold text-emerald-600 mt-1">
@@ -690,22 +734,45 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
 
               {/* Action Button for Free Plan or Manual UPI fallback */}
               {(totalPrice === 0 || paymentMethod === 'manual_upi') && (
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-base font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span>Generating Wishing Webpage...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" /> {totalPrice === 0 ? 'Create Free Wish Link' : 'Submit Manual UPI Order'}
-                    </>
-                  )}
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#e15b70] to-[#d4485e] py-3.5 text-base font-extrabold text-white shadow-md shadow-rose-200 hover:opacity-95 disabled:opacity-50 transition cursor-pointer"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <span>Creating Wishing Webpage...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4" />
+                        <span>Submit &amp; Create</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Plan & Expiry Notice beneath button */}
+                  <div className="text-center pt-0.5">
+                    {isTemporary ? (
+                      <p className="text-xs text-slate-600 flex items-center justify-center gap-1.5 font-medium">
+                        <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>
+                          <strong className="text-slate-800 font-semibold">Temporary Plan</strong> · Valid for 3 Months (Expires on{' '}
+                          <span className="text-[#e15b70] font-bold">{expiryDateText}</span>)
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-600 flex items-center justify-center gap-1.5 font-medium">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        <span>
+                          <strong className="text-slate-800 font-semibold">Permanent Plan</strong> · Lifetime Access (Never Expires)
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
               )}
 
               {/* Try Free Templates Option */}
@@ -875,6 +942,71 @@ export const CustomizePage: React.FC<CustomizePageProps> = ({
                   </button>
                 </form>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Razorpay Not Integrated Notice Modal */}
+        {showRazorpayNoticeModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+            <div className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-slate-100 text-left relative">
+              <button
+                type="button"
+                onClick={() => setShowRazorpayNoticeModal(false)}
+                className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 border border-amber-200 text-amber-700 flex items-center justify-center">
+                <Settings className="w-6 h-6 animate-spin" style={{ animationDuration: '4s' }} />
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="font-serif text-lg font-bold text-slate-900 pt-1">
+                  Razorpay Currently Unavailable
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed pt-0.5">
+                  Online payment via Razorpay is temporarily unavailable. Please complete your order using <strong className="text-slate-900 font-semibold">UPI &amp; QR</strong> payment.
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-700">
+                <p className="font-semibold text-slate-800">
+                  Need any assistance with your order?
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Our admin support team is available live to help you verify payments or answer queries.
+                </p>
+              </div>
+
+              <div className="pt-1 flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowRazorpayNoticeModal(false);
+                    setPaymentMethod('manual_upi');
+                  }}
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <QrCode className="w-4 h-4" />
+                  <span>Pay via UPI &amp; QR</span>
+                </button>
+
+                {onOpenChatSupport && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRazorpayNoticeModal(false);
+                      onOpenChatSupport();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4 text-rose-500" />
+                    <span>Chat with Admin</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

@@ -49,6 +49,7 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [templates, setTemplates] = useState<TemplateItem[]>(TEMPLATES);
+  const [chatInitialMode, setChatInitialMode] = useState<'bot' | 'admin'>('bot');
 
   const [purchasedOrders, setPurchasedOrders] = useState<PurchasedOrder[]>([
     {
@@ -216,7 +217,10 @@ export default function App() {
       <Navbar
         wishlistCount={wishlistCount}
         onOpenProfile={() => navigateToPage('profile')}
-        onOpenAiChat={() => navigateToPage('ai-chat')}
+        onOpenAiChat={() => {
+          setChatInitialMode('bot');
+          navigateToPage('ai-chat');
+        }}
         onOpenAdmin={() => navigateToPage('admin')}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onSelectOccasion={handleSelectOccasion}
@@ -296,7 +300,10 @@ export default function App() {
               onBack={() => navigateToPage('home')}
               onBuyNow={handleBuyNow}
               onExploreFreeTemplates={() => handleSelectOccasion('free')}
-              onOpenChatSupport={() => navigateToPage('ai-chat')}
+              onOpenChatSupport={() => {
+                setChatInitialMode('admin');
+                navigateToPage('ai-chat');
+              }}
             />
           ) : (
             <AllTemplatesPage
@@ -365,7 +372,15 @@ export default function App() {
           />
         )}
 
-        {currentPage === 'ai-chat' && <AiChatPage onBack={() => navigateToPage('home')} />}
+        {currentPage === 'ai-chat' && (
+          <AiChatPage
+            initialMode={chatInitialMode}
+            onBack={() => {
+              setChatInitialMode('bot');
+              navigateToPage('home');
+            }}
+          />
+        )}
       </main>
 
       {/* 4. Footer */}
